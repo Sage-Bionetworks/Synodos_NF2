@@ -1,8 +1,13 @@
 require(synapseClient)
+require(rGithubClient)
 require(affy)
 require(simpleaffy)
 require(limma)
 require(ggplot2)
+
+## GET THE GITHUB REPO WHERE THIS CODE IS STORED
+repo <- getRepo("Sage-Bionetworks/Synodos_NF2")
+thisCode <- getPermlink(repo, "synapseBootstrap/synodosDemo.R")
 
 ## PROVIDE THE FOLDER ID WHERE YOU WANT TO STORE YOUR FILES
 folderId <- ""
@@ -41,4 +46,5 @@ plotFile <- synStore(File(path=plotPath,
                           parentId=folderId), 
                      used=list(
                        list(entity=exprFile, wasExecuted=F),
-                       list(entity=clinFile, wasExecuted=F)))
+                       list(entity=clinFile, wasExecuted=F),
+                       list(url=thisCode, name=basename(thisCode), wasExecuted=T)))
