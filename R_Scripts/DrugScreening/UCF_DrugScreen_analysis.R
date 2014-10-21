@@ -14,45 +14,108 @@ synapseLogin()
 
 source("~/dev/apRs/plotting_helpers.R")
 
+UCF_DS_cleanData <- 'syn2773796'
+UCF_DS <- synGet(UCF_DS_cleanData)
+UCF_DS <- read.delim(UCF_DS@filePath, sep="\t", check.names=F)
+#filter out any rows where DRUG = ''
+UCF_DS <- UCF_DS[!(is.na(UCF_DS$drug) | UCF_DS$drug == ""),]
+#modify colnames
+UCF_DS <- melt(UCF_DS, id.vars=c('name', '0.1% DMSO', 'Ctrl', 'Untreated', '0.1% H2O', 'row',
+                                 'drug', 'no cells', 'synid', 'experiment', 'cellLine'))
+UCF_DS$experiment <- gsub(' ', '', UCF_DS$experiment)
 
-get_UCF_drugScreen_data <- function(){
-  #get the drug data
-  UCF_DS <- synGet("syn2743064")
-  UCF_DS <- read.delim(UCF_DS@filePath, sep="\t", check.names=F)
-  #filter out any rows where DRUG = ''
-  UCF_DS <- UCF_DS[!(is.na(UCF_DS$drug) | UCF_DS$drug == ""),]
-  #modify colnames
-  UCF_DS <- melt(UCF_DS, id.vars=c('name','0.1% DMSO', 'Ctrl', 'Untreated', '0.1% H2O', 'row',
-                                   'drug', 'no cells', 'synid', 'run', 'cellLine'))
-  UCF_DS$run <- gsub(' ', '', UCF_DS$run)
-  #create a numeric conc column
-  UCF_DS['conc'] <- log10(as.numeric(gsub(' uM','',UCF_DS$variable)) * 1e-6)
-  UCF_DS$variable <- NULL
-  #create a numeric column for T0
-  UCF_DS['T0'] = as.numeric(UCF_DS[,'0.1% DMSO'])
-  #where .1% DMSO is NA which mainly for the Drug Perifosine which is soluble in water
-  UCF_DS[is.na(UCF_DS$T0),'T0'] <- UCF_DS[is.na(UCF_DS$T0),'0.1% H2O']
-  
-  #convert to numeric
-  UCF_DS$Untreated <- as.numeric(UCF_DS$Untreated)
-  UCF_DS['viability'] <- as.numeric(UCF_DS$value)
-  UCF_DS$value <- NULL
-  #remove any rows where cell viability is not defined
-  UCF_DS <- UCF_DS[!is.na(UCF_DS$viability),]
-  
-  #create a column for plate
-  plates <- factor(UCF_DS$name)
-  levels(plates)  <- paste0('plate-', 1:length(unique(UCF_DS$name)))
-  UCF_DS['plate'] <- plates
-  UCF_DS
+#create a numeric conc column
+UCF_DS['conc'] <- as.numeric(gsub(' uM','',UCF_DS$variable)) * 1e-6
+UCF_DS$variable <- NULL
+#create a numeric column for T0
+UCF_DS['T0'] = as.numeric(UCF_DS[,'0.1% DMSO'])
+#where .1% DMSO is NA which mainly for the Drug Perifosine which is soluble in water
+UCF_DS[is.na(UCF_DS$T0),'T0'] <- UCF_DS[is.na(UCF_DS$T0),'0.1% H2O']
+
+#convert to numeric
+UCF_DS$Untreated <- as.numeric(UCF_DS$Untreated)
+UCF_DS['viability'] <- as.numeric(UCF_DS$value)
+UCF_DS$value <- NULL
+#remove any rows where cell viability is not defined
+UCF_DS <- UCF_DS[!is.na(UCF_DS$viability),]
+
+#create a column for plate
+plates <- factor(UCF_DS$name)
+levels(plates)  <- paste0('plate-', 1:length(unique(UCF_DS$name)))
+UCF_DS['plate'] <- plates
+
+#fix drug names
+UCF_DS$drug[UCF_DS$drug %in% c('AR-42')] = 'AR42'
+UCF_DS$drug[UCF_DS$drug %in% c('GDC 0941', 'GCD0941')] = 'GDC0941'
+UCF_DS$drug[UCF_DS$drug %in% c('OSU-03012')] = 'OSU03012'
+UCF_DS$drug[UCF_DS$drug %in% c('Ganetspib')] = 'Ganetespib'
+
+
+#######
+#Normalization
+#######
+
+#convert vialbility to Zscore by using negative control like Untreated or DMSO/H20/T0
+norm_by_untreated <- function(df){
+  m <- mean(df$Untreated)
+  stdev <- sd(df$Untreated)  
+  df$viability <- (df$viability - m )/stdev
+  df$Untreated <- (df$Untreated - m )/stdev
+  df$T0 <- (df$T0 - m )/stdev
+  df
 }
 
+#taking untreated as 100% viability
+norm_by_untreated2 <- function(df){
+  m <- mean(df$Untreated)  
+  df$normViability <- df$viability/m
+  df$norMUntreated <- df$Untreated/m
+  df$T0 <- df$T0/m
+  df$Ctrl <- df$Ctrl/m
+  df
+}
+
+#taking DMSO as 100% viability
+norm_by_meanDMSO <- function(df){
+  m <- mean(df$T0)
+  df['normViability'] <- df$viability/m
+  df['meanDMSO'] <- m
+  df$Untreated <- df$Untreated/m
+  df$T0 <- df$T0/m
+  df$Ctrl <- df$Ctrl/m
+  df
+}
+
+UCF_DS_norm_by_meanDMSO <- ddply(.data = UCF_DS, .variables = c('plate', 'drug'),
+                                 .fun = norm_by_meanDMSO)
+colnames(UCF_DS_norm_by_meanDMSO)
+#reshaping the data frame to match a common structure between MGH and UCF data
+#dropping the unwanted cols
+drop_cols <- c('name', '0.1% DMSO', '0.1% H2O', 'Ctrl', 'Untreated', 'T0', 'no cells', 'synid')
+UCF_DS_norm_by_meanDMSO['replicate'] <- UCF_DS_norm_by_meanDMSO$row
+UCF_DS_norm_by_meanDMSO$row <- NULL
+new_col_order <- c('drug', 'conc', 'replicate', 'viability', 'cellLine', 'experiment', 'meanDMSO', 'normViability', 'plate')
+UCF_DS_norm_by_meanDMSO <- UCF_DS_norm_by_meanDMSO[ , !colnames(UCF_DS_norm_by_meanDMSO) %in% drop_cols]
+UCF_DS_norm_by_meanDMSO <- UCF_DS_norm_by_meanDMSO[, new_col_order]
+write.table(ds_norm_by_meanDMSO, file="UCF_DrugScreen_DMSONorm_data.tsv", col.names=T, 
+            sep="\t", quote=F, row.names=F)
+synStore(File("UCF_DrugScreen_DMSONorm_data.tsv", parentId="syn2773788"), 
+         used = UCF_DS_cleanData,
+         executed = )
 
 
-#get the munged drug screen data
-ds <- get_UCF_drugScreen_data()
 
 
+
+
+
+
+
+
+
+##################
+# QC
+##################
 ds_run1 <- filter(ds, run=='Run1')
 ds_run2 <- filter(ds, run=='Run2')
 run1_drugDist <- table(ds_run1$drug, ds_run1$cellLine) 
@@ -64,13 +127,6 @@ tableToPlot(run1_drugDist)
 ggsave("plots/UCF_DrugScreen_run1_drugs.png", width=5, height=8, units="in")
 tableToPlot(run2_drugDist)
 ggsave("plots/UCF_DrugScreen_run2_drugs.png", width=5, height=8, units="in")
-
-#fix drug names
-ds$drug[ds$drug %in% c('AR-42')] = 'AR42'
-ds$drug[ds$drug %in% c('GDC 0941', 'GCD0941')] = 'GDC0941'
-ds$drug[ds$drug %in% c('OSU-03012')] = 'OSU03012'
-ds$drug[ds$drug %in% c('Ganetspib')] = 'Ganetespib'
-
 
 ds_run1 <- filter(ds, run=='Run1')
 ds_run2 <- filter(ds, run=='Run2')
@@ -112,6 +168,14 @@ drugScreen_QC_plot <- function(df,plate_levels,ylab, logy=T){
   p3 <- p3 +  ylab(ylab) + ggtitle('Negative Control(untreated)') + xlab('')
   multiplot(p3,p1,p2)
 }
+
+
+
+#drug screen QC post Normalization
+ds_norm_by_meanUntreated <- ddply(.data = ds, .variables = c('plate', 'drug'),
+                                  .fun = norm_by_untreated2)
+drugScreen_QC_plot(ds_norm_by_meanUntreated, new_plate_levels,'viability(%)', logy=F)
+
 
 drugScreen_QC_plot(ds, new_plate_levels, 'viability(log10)', logy=TRUE)
 
@@ -185,54 +249,6 @@ memoised_pheatmap(m.scaled,annotation=annotation,
                   cluster_rows = FALSE,
                   clustering_distance_cols = "euclidean",
                   border_color = NA)
-
-
-#######
-#Normalization strategy 1
-#convert vialbility to Zscore by using negative control like Untreated or DMSO/H20/T0
-#######
-norm_by_untreated <- function(df){
-  m <- mean(df$Untreated)
-  stdev <- sd(df$Untreated)
-  
-  df$viability <- (df$viability - m )/stdev
-  df$Untreated <- (df$Untreated - m )/stdev
-  df$T0 <- (df$T0 - m )/stdev
-  df
-}
-
-norm_by_untreated2 <- function(df){
-  m <- mean(df$Untreated)  
-  df$viability <- df$viability/m
-  df$Untreated <- df$Untreated/m
-  df$T0 <- df$T0/m
-  df$Ctrl <- df$Ctrl/m
-  df
-}
-
-
-norm_by_meanDMSO <- function(df){
-  m <- mean(df$T0)
-  df$viability <- df$viability/m
-  df$Untreated <- df$Untreated/m
-  df$T0 <- df$T0/m
-  df$Ctrl <- df$Ctrl/m
-  df
-}
-
-#drug screen QC post Normalization
-ds_norm_by_meanUntreated <- ddply(.data = ds, .variables = c('plate', 'drug'),
-                                  .fun = norm_by_untreated2)
-drugScreen_QC_plot(ds_norm_by_meanUntreated, new_plate_levels,'viability(%)', logy=F)
-
-
-
-ds_norm_by_meanDMSO <- ddply(.data = ds, .variables = c('plate', 'drug'),
-                             .fun = norm_by_meanDMSO)
-drugScreen_QC_plot(ds_norm_by_meanDMSO, new_plate_levels,'viability(%)', logy=F)
-write.table(ds_norm_by_meanDMSO, file="UCF_DrugScreen_normalizedBy_meanDMSO.csv", col.names=T, 
-            sep="\t", quote=F, row.names=F)
-synStore(File("UCF_DrugScreen_normalizedBy_meanDMSO.csv", parentId="syn2753201"))
 
 
 
