@@ -1,6 +1,7 @@
 options(stringsAsFactors = F)
 
 library(nplr)
+library(plyr)
 library(dplyr)
 library(rCharts)
 library(ggvis)
@@ -12,7 +13,8 @@ library("synapseClient")
 library('sjPlot')
 synapseLogin()
 
-source("~/dev/apRs/plotting_helpers.R")
+source("~/dev/apRs/expression_heatmap.R")
+source("~/dev/Synodos_NF2/R_Scripts/DrugScreening/common_functions.R")
 
 UCF_DS_cleanData <- 'syn2773796'
 UCF_DS <- synGet(UCF_DS_cleanData)
@@ -20,9 +22,10 @@ UCF_DS <- read.delim(UCF_DS@filePath, sep="\t", check.names=F)
 #filter out any rows where DRUG = ''
 UCF_DS <- UCF_DS[!(is.na(UCF_DS$drug) | UCF_DS$drug == ""),]
 #modify colnames
-UCF_DS <- melt(UCF_DS, id.vars=c('name', '0.1% DMSO', 'Ctrl', 'Untreated', '0.1% H2O', 'row',
-                                 'drug', 'no cells', 'synid', 'experiment', 'cellLine'))
+UCF_DS <- melt(UCF_DS, id.vars=c( '0.1% DMSO', 'Ctrl', 'Untreated', '0.1% H2O', 'plateRow',
+                                 'drug', 'no cells', 'experiment', 'cellLine'))
 UCF_DS$experiment <- gsub(' ', '', UCF_DS$experiment)
+
 
 #create a numeric conc column
 UCF_DS['conc'] <- as.numeric(gsub(' uM','',UCF_DS$variable)) * 1e-6
@@ -32,6 +35,8 @@ UCF_DS['T0'] = as.numeric(UCF_DS[,'0.1% DMSO'])
 #where .1% DMSO is NA which mainly for the Drug Perifosine which is soluble in water
 UCF_DS[is.na(UCF_DS$T0),'T0'] <- UCF_DS[is.na(UCF_DS$T0),'0.1% H2O']
 
+
+
 #convert to numeric
 UCF_DS$Untreated <- as.numeric(UCF_DS$Untreated)
 UCF_DS['viability'] <- as.numeric(UCF_DS$value)
@@ -40,15 +45,20 @@ UCF_DS$value <- NULL
 UCF_DS <- UCF_DS[!is.na(UCF_DS$viability),]
 
 #create a column for plate
-plates <- factor(UCF_DS$name)
-levels(plates)  <- paste0('plate-', 1:length(unique(UCF_DS$name)))
-UCF_DS['plate'] <- plates
+# plates <- factor(UCF_DS$name)
+# levels(plates)  <- paste0('plate-', 1:length(unique(UCF_DS$name)))
+# UCF_DS['plate'] <- plates
 
 #fix drug names
 UCF_DS$drug[UCF_DS$drug %in% c('AR-42')] = 'AR42'
 UCF_DS$drug[UCF_DS$drug %in% c('GDC 0941', 'GCD0941')] = 'GDC0941'
 UCF_DS$drug[UCF_DS$drug %in% c('OSU-03012')] = 'OSU03012'
 UCF_DS$drug[UCF_DS$drug %in% c('Ganetspib')] = 'Ganetespib'
+UCF_DS$drug[UCF_DS$drug %in% c('Borterzomib')] = 'Bortezomib'
+
+#remove filler X drug
+UCF_DS <- UCF_DS[!UCF_DS$drug %in% c('filler X') ,]
+
 
 
 #######
@@ -76,49 +86,78 @@ norm_by_untreated2 <- function(df){
 }
 
 #taking DMSO as 100% viability
-norm_by_meanDMSO <- function(df){
-  m <- mean(df$T0)
+norm_by_medianDMSO <- function(df){
+  m <- median(df$T0)
   df['normViability'] <- df$viability/m
-  df['meanDMSO'] <- m
-  df$Untreated <- df$Untreated/m
-  df$T0 <- df$T0/m
-  df$Ctrl <- df$Ctrl/m
+  df['medianDMSO'] <- m
+  #df$Untreated <- df$Untreated/m
+  #df$T0 <- df$T0/m
+  #df$Ctrl <- df$Ctrl/m
   df
 }
 
-UCF_DS_norm_by_meanDMSO <- ddply(.data = UCF_DS, .variables = c('plate', 'drug'),
-                                 .fun = norm_by_meanDMSO)
-colnames(UCF_DS_norm_by_meanDMSO)
+
+UCF_DS_norm_by_medianDMSO <- ddply(.data = UCF_DS, .variables = c('experiment', 'cellLine', 'drug'),
+                                 .fun = norm_by_medianDMSO)
+
 #reshaping the data frame to match a common structure between MGH and UCF data
 #dropping the unwanted cols
-drop_cols <- c('name', '0.1% DMSO', '0.1% H2O', 'Ctrl', 'Untreated', 'T0', 'no cells', 'synid')
-UCF_DS_norm_by_meanDMSO['replicate'] <- UCF_DS_norm_by_meanDMSO$row
-UCF_DS_norm_by_meanDMSO$row <- NULL
-new_col_order <- c('drug', 'conc', 'replicate', 'viability', 'cellLine', 'experiment', 'meanDMSO', 'normViability', 'plate')
-UCF_DS_norm_by_meanDMSO <- UCF_DS_norm_by_meanDMSO[ , !colnames(UCF_DS_norm_by_meanDMSO) %in% drop_cols]
-UCF_DS_norm_by_meanDMSO <- UCF_DS_norm_by_meanDMSO[, new_col_order]
-write.table(ds_norm_by_meanDMSO, file="UCF_DrugScreen_DMSONorm_data.tsv", col.names=T, 
+drop_cols <- c('0.1% DMSO', '0.1% H2O', 'Ctrl', 'Untreated', 'T0', 'no cells', 'synid')
+UCF_DS_norm_by_medianDMSO['replicate'] <- UCF_DS_norm_by_medianDMSO$plateRow
+UCF_DS_norm_by_medianDMSO$plateRow <- NULL
+new_col_order <- c('drug', 'conc', 'replicate', 'viability', 'cellLine', 'experiment', 'medianDMSO', 'normViability')
+UCF_DS_norm_by_medianDMSO <- UCF_DS_norm_by_medianDMSO[ , !colnames(UCF_DS_norm_by_medianDMSO) %in% drop_cols]
+UCF_DS_norm_by_medianDMSO <- UCF_DS_norm_by_medianDMSO[, new_col_order]
+
+write.table(UCF_DS_norm_by_medianDMSO, file="UCF_DrugScreen_DMSONorm_data.tsv", col.names=T, 
             sep="\t", quote=F, row.names=F)
-synStore(File("UCF_DrugScreen_DMSONorm_data.tsv", parentId="syn2773788"), 
+normData <- synStore(File("UCF_DrugScreen_DMSONorm_data.tsv", parentId="syn2773788"), 
          used = UCF_DS_cleanData,
-         executed = )
+         executed = 'https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/R_Scripts/DrugScreening/UCF_DrugScreen_analysis.R' )
+unlink("UCF_DrugScreen_DMSONorm_data.tsv")
 
 
+#Dose Response curve fitting to calculate IC vals
+tmp_iterator <- function(df){
+  tryCatch({
+    stats <- get_drugResponse_stats(df$conc, df$normViability, useLog=T)  
+  },error=function(e){
+    print(dim(df))
+    print(df$conc)
+    print(df$normViability)
+    print(unique(df$cellLine))
+    print(unique(df$drug))
+    print(unique(df$experiment))
+    print(e)
+    stop('stopped')
+  })
+}
 
 
+########
+#ICvals
+########
+UCF_DS_norm_by_medianDMSO_dr_fit <- ddply(.data=UCF_DS_norm_by_medianDMSO, 
+                                          .variables = c('experiment', 'cellLine', 'drug'), 
+                                          .fun=tmp_iterator)
 
-
-
-
+write.table(UCF_DS_norm_by_medianDMSO_dr_fit, file="UCF_DrugScreen_ICVals.tsv", col.names=T, sep="\t", quote=F, row.names=F)
+ICVals <- synStore(File("UCF_DrugScreen_ICVals.tsv", parentId="syn2773788"),
+                   used = normData$properties$id,
+                   executed = 'https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/R_Scripts/DrugScreening/UCF_DrugScreen_analysis.R')
+unlink("UCF_DrugScreen_ICVals.tsv")
 
 
 
 ##################
 # QC
 ##################
-ds_run1 <- filter(ds, run=='Run1')
+ds <- UCF_DS
+View(UCF_DS)
+ds_run1 <- filter(ds, experiment=='Run1')
 ds_run2 <- filter(ds, run=='Run2')
 run1_drugDist <- table(ds_run1$drug, ds_run1$cellLine) 
+run1_drugDist
 run2_drugDist <- table(ds_run2$drug, ds_run2$cellLine) 
 #convert to #replicates / drug (each drug has 9 concentration time points)
 run1_drugDist <- round(run1_drugDist/9,0)

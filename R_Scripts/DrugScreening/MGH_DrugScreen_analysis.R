@@ -9,19 +9,22 @@ library(reshape2)
 library(gridExtra)
 library("synapseClient")
 
+
 synapseLogin()
 setwd("~/dev/Synodos_NF2/R_Scripts/DrugScreening")
-source("common_functions.R")
+source("~/dev/Synodos_NF2/R_Scripts/DrugScreening/common_functions.R")
 source("~/dev/apRs/plotting_helpers.R")
 
 #get the cleaned MGH Drug Screen Data
-MGH_cleaned_data <- 'syn2773611'
+MGH_cleaned_data <- 'syn2773789'
 MGH_DS <- synGet(MGH_cleaned_data)
 MGH_DS <- read.delim(MGH_DS@filePath,sep="\t", check.names=F)
+
 
 #convert conc to molar from microMolar
 MGH_DS$conc = as.numeric(MGH_DS$conc) * 1e-6
 MGH_DS$cellLine = gsub('syn', 'Syn', MGH_DS$cellLine)
+
 
 #normalize the drug names to be in syn with UCF AND MGH data
 MGH_DS[grepl('Everol', MGH_DS$drug, ignore.case=T), 'drug'] = 'Everolimus'
@@ -42,15 +45,16 @@ MGH_DS[grepl('Perifosine', MGH_DS$drug, ignore.case=T), 'drug'] = 'Perifosine'
 MGH_DS[grepl('GSK2126458', MGH_DS$drug, ignore.case=T), 'drug'] = 'GSK2126458'
 
 
-#nromalize by DMSO 
+
+
+#normalize by DMSO / H20
 #IMP here to understand the plate structure, refer: syn2765805
 #each cellLine across experiment was done on a single plate
-MGH_meanDMSO <- MGH_DS %>%
-                  group_by(cellLine, experiment ) %>%
-                  summarize(meanDMSO = mean(viability[drug == 'DMSO']))
-
-MGH_DS <- merge(MGH_DS, MGH_meanDMSO)
-MGH_DS['normViability'] = MGH_DS$viability / MGH_DS$meanDMSO
+MGH_medianDMSO <- MGH_DS %>%
+                  group_by(cellLine, experiment, stage ) %>%
+                  summarise(medianDMSO=median(viability[drug == 'DMSO']))
+MGH_DS <- merge(MGH_DS, MGH_medianDMSO)
+MGH_DS['normViability'] = MGH_DS$viability / MGH_DS$medianDMSO
 
 #filter out DMSO and media values
 MGH_DS <- filter(MGH_DS,  ! drug %in% c('DMSO', 'media'))
@@ -70,9 +74,10 @@ tmp_iterator <- function(df){
   })
 }
 
-MGH_DS_dr_fit_by_meanDMSO <- ddply(.data=MGH_DS, .variables = c('experiment', 'cellLine', 'drug'), 
+
+MGH_DS_dr_fit_by_medianDMSO <- ddply(.data=MGH_DS, .variables = c('experiment', 'cellLine', 'stage', 'drug'), 
                                    .fun=tmp_iterator)
-MGH_DS_dr_fit_by_meanDMSO_flt <- filter(MGH_DS_dr_fit_by_meanDMSO, goodNess_of_fit > .8)
+#MGH_DS_dr_fit_by_meanDMSO_flt <- filter(MGH_DS_dr_fit_by_meanDMSO, goodNess_of_fit > .8)
 
 
 
@@ -80,38 +85,30 @@ MGH_DS_dr_fit_by_meanDMSO_flt <- filter(MGH_DS_dr_fit_by_meanDMSO, goodNess_of_f
 #store in synapse
 #DMSO norm data
 write.table(MGH_DS, file="MGH_DrugScreen_DMSONorm_data.tsv", col.names=T, sep="\t", quote=F, row.names=F)
-synStore(File("MGH_DrugScreen_DMSONorm_data.tsv", parentId="syn2740273"), 
-         used = MGH_cleaned_data,
-         executed = )
+normData <- synStore(File("MGH_DrugScreen_DMSONorm_data.tsv", parentId="syn2773788"), 
+                     used = MGH_cleaned_data,
+                     executed = 'https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/R_Scripts/DrugScreening/MGH_DrugScreen_analysis.R')
+unlink("MGH_DrugScreen_DMSONorm_data.tsv")
 
 
 #ICvals
-write.table(MGH_DS_dr_fit_by_meanDMSO_flt, file="MGH_DrugScreen_ICVals.tsv", col.names=T, sep="\t", quote=F, row.names=F)
-synStore(File("MGH_DrugScreen_ICVals.csv", parentId="syn2740273"), used = )
+write.table(MGH_DS_dr_fit_by_medianDMSO, file="MGH_DrugScreen_ICVals.tsv", col.names=T, sep="\t", quote=F, row.names=F)
+ICVals <- synStore(File("MGH_DrugScreen_ICVals.tsv", parentId="syn2773788"),
+                   used = normData$properties$id,
+                   executed = 'https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/R_Scripts/DrugScreening/MGH_DrugScreen_analysis.R')
+unlink("MGH_DrugScreen_ICVals.tsv")
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+##############
+##Data QC steps
+##############
 
 drug_levels <- ddply(.data=MGH_DS_dr_fit_by_meanDMSO_flt, .variables=c('drug'), .fun=function(x) mean(x$IC50,na.rm=T))
 drug_levels <- arrange(drug_levels, desc(V1))
 drug_levels <- drug_levels$drug
 
-View(MGH_DS_dr_fit_by_meanDMSO)
 
 #IC50 across three cell lines across two runs
 p <- ggplot(data=MGH_DS_dr_fit_by_meanDMSO_flt, aes(x=factor(drug,levels=drug_levels), y=log10(IC50), group=experiment)) + geom_line(aes(color=experiment)) 

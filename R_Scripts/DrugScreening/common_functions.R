@@ -1,6 +1,5 @@
 library(nplr)
 
-
 get_drugResponse_stats <- function(conc,viability,...){
   res <- nplr(conc, viability,...)
   results <- getAUC(res)
@@ -16,6 +15,7 @@ get_drugResponse_stats <- function(conc,viability,...){
   results['IC70'] = ICx_est[7,'x']
   results['IC80'] = ICx_est[8,'x']
   results['IC90'] = ICx_est[9,'x']
+  results['maxEfficacy'] = 1 - min(getYcurve(res)) #get the maximum efficacy of the drug
   results['bottom_asymptote'] = res@pars['bottom']
   results['top_asymptote'] = res@pars['top']
   results['hillSlope'] =  res@pars['scal']
