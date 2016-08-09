@@ -1,0 +1,248 @@
+---
+title: "Synodos - NCATS monotherapy data analysis"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+library(data.table)
+library(gdata)
+library(plyr)
+library(dplyr)
+library(synapseClient)
+library(ggplot2)
+library(reshape2)
+library("pheatmap")
+
+source("~/dev/apRs/dataExploration_plots.R")
+source("~/dev/apRs/plotting_helpers.R")
+source("~/dev/apRs/expression_heatmap.R")
+
+synapseLogin()
+knitr::opts_chunk$set(warning = F, echo=F, message = F,
+                      fig.align="center")
+```
+
+
+```{r}
+#download data
+NCATS_monotherapy_data_synid <- 'syn5816995'
+drugScreen <- read.xls(synGet(NCATS_monotherapy_data_synid)@filePath, as.is=T)
+colnames(drugScreen) <- gsub('\\.','',colnames(drugScreen))
+drugs <- drugScreen %>% select(SampleID, SampleName, GeneSymbol)
+drugs <- drugs[!duplicated(drugs),]
+
+crc <- drugScreen$CRC
+drugScreen['CRC_class'] <- 'inconclusive'
+drugScreen$CRC_class[crc %in% c(1.1, 1.2, 2.1, 2.2)] <- 'Enhances'
+drugScreen$CRC_class[crc %in% c(-1.1, -1.2, -2.1, -2.2)] <- 'Inhibits'
+drugScreen$CRC_class[crc == 4] <- 'Inactive'
+
+drugScreen$NF2status <- revalue(factor(drugScreen$NF2status),
+                                replace=c('NF2 null '='NF2--',
+                                          'NF2 expressing '='NF2++'))
+```
+
+#### DrugScreen metrics 
+
+A.) Density Histograms Plots - AUC, AC50 & MaxResp
+
+```{r fig.width=8, fig.height=4}
+p1 <- ggplot(data=drugScreen, aes(x=AUC, fill=Cellline)) + geom_density(alpha=.7)
+p1 <- p1 + theme_bw() + facet_grid(~CellType) 
+
+p2 <- ggplot(data=drugScreen, aes(x=MaxResp, fill=Cellline)) + geom_density(alpha=.7)
+p2 <- p2 + theme_bw() + facet_grid(~CellType) 
+
+p3 <- ggplot(data=drugScreen, aes(x=AC50uM, fill=Cellline)) + geom_density(alpha=.7)
+p3 <- p3 + theme_bw() + facet_grid(~CellType) 
+
+multiplot(plotlist = list(p1,p2,p3), cols=2)
+```
+
+
+#### PCA (using AUC values)
+```{r fig.width=4, fig.height=3 }
+temp_d <- dcast(data=drugScreen, SampleID  ~ Cellline, value.var='AUC')
+rownames(temp_d) <- temp_d[,1]
+temp_d[,1] <- NULL
+temp_d <- temp_d[complete.cases(temp_d),]
+colorBy <- colnames(temp_d)
+names(colorBy) <- colnames(temp_d)
+m <- t(scale(temp_d))
+doPCA(m, colorBy = colorBy)
+```
+
+#### Correlation plot
+```{r fig.width=8, fig.height=6}
+corPlot(temp_d)
+```
+
+
+#### Compare NCATS data with Synodos Drug Screen data
+Using AUC as a metric for comparing the common drugs between the two datasets
+```{r fig.width=8, fig.height=4}
+MGH_lines <- fread(synGet('syn2773794')@filePath) %>% 
+  select(cellLine,drug,trapezoid,IC50,maxEfficacy)
+UCF_lines <- fread(synGet('syn2773891')@filePath) %>%
+  select(cellLine,drug,trapezoid,IC50,maxEfficacy)
+synodos_drugscreen_data <- rbind(MGH_lines, UCF_lines) %>% mutate(drug=factor(drug)) %>% mutate(drug = revalue(drug,replace=c('CUDC907'='CUDC-907','AR42'='AR-42','AZD2014'='AZD-2014', 'GDC0941'='GDC-0941','GDC0980'='GDC-0980', 'OSU03012'='OSU-03012','GSK2126458'='GSK-2126458'))
+)
+synodos_drugscreen_data <- synodos_drugscreen_data %>% group_by(cellLine, drug) %>% summarise(trapezoid=mean(trapezoid), IC50=mean(IC50), maxEfficacy=mean(maxEfficacy))
+
+common_cellLines <- intersect(drugScreen$Cellline ,synodos_drugscreen_data$cellLine)
+
+comp_plots <- lapply(common_cellLines, function(selected_cellline){
+  synodos_d = synodos_drugscreen_data %>% filter(cellLine == selected_cellline)
+  NCATS_d = drugScreen %>% filter(Cellline == selected_cellline )
+  data <- merge(synodos_d, NCATS_d, by.x='drug',by.y='SampleName', how="inner") %>% mutate(NCATS.AUC=AUC, Syn.AUC=trapezoid)
+  p1 <- ggplot(data=data, aes(x=NCATS.AUC, y=Syn.AUC)) + geom_point() + theme_bw()
+  to_keep <- !(is.na(data$NCATS.AUC) | is.na(data$Syn.AUC))
+  p1 <- p1 +  ggtitle(paste(selected_cellline, ' Correlation ', round(cor(data$NCATS.AUC[to_keep],data$Syn.AUC[to_keep], method="spearman"),2)))
+  p1
+})
+
+multiplot(plotlist = comp_plots, cols=2)
+```
+
+
+
+
+
+#### Compare Drug Target Classes
+Targets that have >= 5 drugs present
+
+
+```{r, fig.width=12, fig.height=5}
+counts <- table(drugs %>% filter(GeneSymbol != '' ) %>% .$GeneSymbol)
+selected_drug_targets <- names(counts)[counts >= 5]
+
+target_enrichment <- function(cellLine1, cellLine2){
+  ldply(selected_drug_targets, function(target){
+                d1 <- drugScreen %>% filter(GeneSymbol == target & Cellline %in% cellLine1)
+                d2 <- drugScreen %>% filter(GeneSymbol == target & Cellline %in% cellLine2)
+                AUC.pval=NA
+                tryCatch({AUC.pval <-  wilcox.test(d1$AUC,d2$AUC,na.rm=T )$p.value},
+                         error=function(w){w})
+                AC50.pval=NA
+                tryCatch({AC50.pval <-  wilcox.test(d1$AC50uM,d2$AC50uM,na.rm=T )$p.value},
+                          error=function(w){w})
+                MaxResp.pval=NA
+                tryCatch({MaxResp.pval<-  wilcox.test(d1$MaxResp,d2$MaxResp,na.rm=T)$p.value},
+                          error=function(w){w})
+                to_keep <- !(is.na(d1$AUC)|is.na(d2$AUC))
+                AUC.log2FC <- log2(mean(d1$AUC[to_keep]/d2$AUC[to_keep]))
+                to_keep <- !(is.na(d1$AC50uM)|is.na(d2$AC50uM))
+                AC50.log2FC <- log2(mean(d1$AC50uM[to_keep]/d2$AC50uM[to_keep]))
+                to_keep <- !(is.na(d1$MaxResp)|is.na(d2$MaxResp))
+                MaxResp.log2FC <- log2(mean(d1$MaxResp[to_keep]/d2$MaxResp[to_keep]))
+                res <- data.frame(cellLine1=cellLine1, cellLine2=cellLine2,
+                           AUC.pval=AUC.pval, AC50.pval=AC50.pval,
+                           MaxResp.pval=MaxResp.pval,
+                           AUC.log2FC=AUC.log2FC,AC50.log2FC=AC50.log2FC,
+                           MaxResp.log2FC=MaxResp.log2FC,target=target)
+          
+          })
+}
+
+
+plotTargetEnrichment <- function(res, cellLine1, cellLine2){
+    p1 <- ggplot(data=res, aes(y=-log10(AUC.pval), x=AUC.log2FC)) + geom_point() + theme_bw() + theme(legend.position="none")
+    p1 <- p1 + geom_hline(aes(yintercept=-log10(.10), color="darkred")) 
+    p1 <- p1 + geom_text( data = res %>% filter(AUC.pval <= .05), aes(y=-log10(AUC.pval)+.1, x=AUC.log2FC,label=target), size=2, color="#2c7fb8") +ggtitle(paste0(cellLine1,'-',cellLine2))
+    p1 <- p1 + geom_text( data = res %>% filter(AUC.pval >= .05 & abs(AUC.log2FC) > .3), aes(y=-log10(AUC.pval)+.1, x=AUC.log2FC,label=target), size=3, color="#2c7fb8")
+    
+    # p2 <- ggplot(data=res, aes(y=-log10(AC50.pval), x=AC50.log2FC)) + geom_point() + theme_bw() +  theme(legend.position="none")
+    # p2 <- p2 + geom_hline(aes(yintercept=-log10(.10)), color="darkred")
+    # p2 <- p2 + geom_text( data = res %>% filter(AC50.pval <= .05), aes(y=-log10(AC50.pval)+.1, x=AC50.log2FC,label=target), size=2, color="#2c7fb8") +  ggtitle(paste0(cellLine1,'-',cellLine2))
+    # p2 <- p2 + geom_text( data = res %>% filter(AC50.pval >= .05 & abs(AC50.log2FC) > 4), aes(y=-log10(AC50.pval)+.1, x=AC50.log2FC,label=target), size=2.5, color="#2c7fb8")
+    #multiplot(plotlist=list(p1,p2), cols=2) 
+    p1
+}
+
+HS01_vs_HS12 <- target_enrichment('HS01', 'HS12')
+p1 <- plotTargetEnrichment(HS01_vs_HS12,'HS01','HS12')
+
+Syn5_vs_Syn1 <- target_enrichment('Syn5', 'Syn1')
+p2 <- plotTargetEnrichment(Syn5_vs_Syn1,'Syn5', 'Syn1')
+
+Syn6_vs_Syn1 <- target_enrichment('Syn6', 'Syn1')
+p3 <- plotTargetEnrichment(Syn6_vs_Syn1,'Syn6', 'Syn1')
+
+multiplot(plotlist = list(p1,p2,p3), cols=3)
+```
+
+
+
+#### Sample Enrichment Plot - Drugs targeting AURKA
+```{r}
+d1 <- drugScreen %>% filter(GeneSymbol == 'AURKA' & Cellline %in% c('Syn5','Syn1', 'HS01', 'HS12') )
+new_levels <- ddply(.data=d1, .variables = c('SampleName'), function(x) mean(x$AC50uM, na.rm = T)) %>% arrange(desc(V1)) %>% .$SampleName
+
+ggplot(data=d1, aes(x=factor(SampleName, levels=new_levels), color=Cellline, y=AC50uM)) + geom_point() + facet_wrap(~ CellType, ncol=1) + theme_bw() + ggtitle('NCATS - AC50(uM) AURKA targetting drugs') + xlab('AURKA targetting drugs') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+#### Tabluted form - NULL vs WT foldchange & significance
+```{r enrichment, echo=F}
+NCATS_enrichment_data <- rbind(HS01_vs_HS12, Syn6_vs_Syn1, Syn5_vs_Syn1)
+NCATS_enrichment_data <- NCATS_enrichment_data %>% mutate(MaxResp.log2FC=signif(MaxResp.log2FC, digits=2),
+                           AC50.log2FC=signif(AC50.log2FC, digits=2),
+                           AUC.log2FC=signif(AUC.log2FC, digits=2),
+                           MaxResp.pval=signif(MaxResp.pval, digits=2),
+                           AC50.pval =signif(AC50.pval , digits=2),
+                           AUC.pval=signif(AUC.pval, digits=2),
+                           NULL_line = cellLine1,
+                           WT_line = cellLine2, Target = target) %>%
+  select(Target, NULL_line, WT_line,AC50.log2FC,AUC.log2FC,MaxResp.log2FC,MaxResp.pval,AC50.pval,AUC.pval)
+DT::datatable(NCATS_enrichment_data, filter='top')
+
+#UPLOAD Data to synapse
+write.table(NCATS_enrichment_data, file="NCATS_target_enrichment.tsv", sep="\t", col.names = T,
+            row.names = F, quote = F)
+
+synStore(File("NCATS_target_enrichment.tsv", parentId = "syn2773788"),
+         used = NCATS_monotherapy_data_synid,
+         executed = "")
+
+
+
+
+```
+
+
+
+
+### Comparing Drug Response NF2 NULL vs WT
+```{r, echo=F, fig.width=10}
+#NF2++ vs NF2--
+fit <- lm(AUC ~ NF2status + SampleID, data=drugScreen)
+lm.summary <- summary(fit)
+lm.coef <- data.frame(coef(lm.summary))
+colnames(lm.coef) <- c('estimate', 'stdError', 't.val', 'p.val')
+lm.coef['SampleID'] <- gsub('SampleID' ,'',rownames(lm.coef))
+lm.coef <- lm.coef %>% arrange(p.val)
+selected_compounds <- lm.coef$SampleID[1:60]
+temp_d <- dcast(data=drugScreen %>% filter(SampleID %in% selected_compounds),
+                SampleName ~ Cellline, value.var='AUC')
+rownames(temp_d) <- temp_d$SampleName
+temp_d$SampleName <- NULL
+temp_d <- temp_d[complete.cases(temp_d),]
+pheatmap(scale(t(temp_d)),cellwidth=10,cellheight=10,fontsize_row=10 )
+pheatmap(t(temp_d),cellwidth=10,cellheight=10)
+```
+
+
+
+### Comparing Drugs Across Schwannoma - NULL / WT 
+```{r schwannoma, echo=F, fig.width=10, fig.height=5, eval=F}
+#schwannoma data
+schwannoma <- drugScreen %>% filter(Cellline %in% c('HS01', 'HS12', 'MS02'))
+schwannoma_human <- drugScreen %>% filter(Cellline %in% c('HS01', 'HS12'))
+#Schwannoma
+schwannoma_human$Cellline <- factor(schwannoma_human$Cellline, level=c('HS12','HS01'))
+```
+
+
