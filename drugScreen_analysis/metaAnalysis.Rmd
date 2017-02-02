@@ -1,0 +1,82 @@
+---
+title: "Synodos NF2 - Drug Screen Data Analysis"
+output: 
+  html_notebook: 
+    code_folding: hide
+    toc: yes
+---
+
+```{r, echo=F}
+library(synapseClient)
+library(dplyr)
+library(tidyr)
+library("ggplot2")
+
+synapseLogin()
+
+d <- synGet("syn6138226")@filePath
+d <- read.table(file=d, sep = "\t", header = TRUE, fill = TRUE) %>%
+  select(-X, -trapezoid, -stdErr, -stage, -experiment) %>%
+  mutate(cellLine = as.character(cellLine))
+md <- synTableQuery("select * from syn3275123")@values
+md <- md[,c('ID','organism', 'NF2 Status')]
+colnames(md) <- c('cellLine','organism', 'NF2Status')
+d$cellLine[d$cellLine == 'MSC11'] = 'MS11'
+d <- merge(d, md)
+d$NF2Status[d$cellLine %in% c('HS01', 'MS01', 'MS02', 'MS03')] = 'negative'
+d$NF2Status[d$cellLine %in% c('HS11', 'MS11', 'MS12')] = 'positive'
+d$tumorType = NA
+d$tumorType[d$center == 'UCF'] = 'schwannoma'
+d$tumorType[d$center == 'MGH'] = 'meningioma'
+
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+m1 <- lm(Simpson ~ tumorType + NF2Status + drug  + organism, data=d)
+summary(m1)
+```
+
+
+
+
+```{r}
+m1 <- lm(Simpson ~  NF2Status + drug + NF2Status*drug, data=d %>% filter(tumorType == 'meningioma'))
+summary(m1)
+
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+anova(m1)
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+
+ggplot(data=d, aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=organism)) + geom_boxplot()
+
+
+hist(log10(d$IC50))
+
+quantile(log10(d$IC50), na.rm=T, probs=seq(0,1,by=.01))
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+
+d$maxEfficacy
+
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=maxEfficacy, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+
+
+```
+
+
+```{r, }
+
+ggplot(data=data, aes(x=log10(IC50))) + geom_density()
+ggplot(data=data, aes(x=log10(IC50))) + geom_density()
+
+head(data)
+```
+
