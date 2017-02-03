@@ -1,8 +1,12 @@
 ---
 title: "Synodos NF2 - Drug Screen Data Analysis"
-output: 
-  html_notebook: 
+output:
+  html_notebook:
     code_folding: hide
+    toc: yes
+  html_document:
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -30,49 +34,142 @@ d$tumorType[d$center == 'UCF'] = 'schwannoma'
 d$tumorType[d$center == 'MGH'] = 'meningioma'
 
 ```
-
+##Linear Models
+*Model: Simpson AUC as a function of tumor type, NF2 status, drug, NF2status\*drug, and organism.* This model includes all cell lines tested irrespective of organism or tumor type. The schwannoma model has an estimated 1.4-fold reduced Simpson AUC across all models as compared to the reference (meningioma). On the other hand, accounting for all other variables, NF2 status has a nonsignificant effect on Simpson AUC. Several drugs have a significant effect on Simpson AUC 
 
 ```{r fig.align='center', fig.width=10, fig.height=6}
-m1 <- lm(Simpson ~ tumorType + NF2Status + drug  + organism, data=d)
+m1 <- lm(Simpson ~ tumorType + NF2Status + drug + NF2Status*drug + organism, data=d)
 summary(m1)
 ```
 
+*Model: IC50 as a function of tumor type, NF2 status, drug, NF2status\*drug, and organism.* This model includes all cell lines tested irrespective of organism or tumor type. With this approach, everolimus has a 31-fold increased IC50 across NF2-intact cell lines. 
 
+```{r fig.align='center', fig.width=10, fig.height=6}
+d2 <- filter(d, IC50!="Inf")
+m1 <- lm(log(IC50) ~ tumorType + NF2Status + drug + NF2Status*drug + organism, data=d2)
+summary(m1)
+```
 
+*Model: Simpson AUC as a function of NF2 status by drug in all meningioma cell lines.* This model tests for a significant effect on Simpson AUC of all of the tested drugs, factoring in NF2 status. When using Simpson AUC as a measurement of drug effect, we observe that axitinib, bortezomib, CUDC907, GSK2126458 and panobinostat all have significant effects on cell viability (p<0.05). 
 
-```{r}
-m1 <- lm(Simpson ~  NF2Status + drug + NF2Status*drug, data=d %>% filter(tumorType == 'meningioma'))
+```{r fig.align='center', fig.width=10, fig.height=6}
+m1 <- lm(Simpson ~ NF2Status:drug, data=d %>% filter(tumorType == 'meningioma'))
 summary(m1)
 
 ```
+
+*Model: IC50 as a function of NF2 status by drug in all meningioma cell lines.* This model tests for a significant effect on log(IC50) of all of the tested drugs, factoring in NF2 status. When using log(IC50) as a measurement of drug effect, we observe that axitinib, bortezomib, CUDC907, ganetespib, GSK2126458, and panobinostat have a significant effect on cell viability (p<0.05). 
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+m1 <- lm(log(IC50) ~ NF2Status:drug, data=d2 %>% filter(tumorType == 'meningioma'))
+summary(m1)
+
+```
+
+*Model: Simpson AUC as a function of NF2 status by drug in all schwannoma cell lines.* This model tests for a significant effect on Simpson AUC of all of the tested drugs, factoring in NF2 status. When using Simpson AUC as a measurement of drug effect, we observe that only AR42, AZD2014, bortezomib, CUDC907, everolimus, ganetespib, GDC980, GSK2126458, LY2157299, panobinostat, and trametenib have a significant effects on cell viability (p<0.05). CUDC907 has a -1.98 fold effect on Simpson AUC in the NF2 deficient schwannoma models, while it has a -1.61 fold effect in the NF2 intact models. GSK2126458 has a -2.19 fold effect on AUC in the NF2 -/- models, while it has a -1.81 fold effect in the NF2-intact models. Finally, panobinostat has a -1.24 fold effect on NF2 -/- schwannomalmodels, but a -0.90 fold effect on NF2-intact models.
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+m1 <- lm(Simpson ~  NF2Status:drug, data=d %>% filter(tumorType == 'schwannoma'))
+summary(m1)
+
+```
+
+*Model: log(IC50) as a function of NF2 status by drug in all schwannoma cell lines.* This model tests for a significant effect on Simpson AUC of all of the tested drugs, factoring in NF2 status. When using Simpson AUC as a measurement of drug effect, we observe that only AR42, AZD2014, bortezomib, CUDC907, everolimus, ganetespib, GDC980, GSK2126458, LY2157299, panobinostat, and trametenib have a significant effects on cell viability (p<0.05). CUDC907 has a -1.98 fold effect on Simpson AUC in the NF2 deficient schwannoma models, while it has a -1.61 fold effect in the NF2 intact models. GSK2126458 has a -2.19 fold effect on AUC in the NF2 -/- models, while it has a -1.81 fold effect in the NF2-intact models. Finally, panobinostat has a -1.24 fold effect on NF2 -/- schwannomalmodels, but a -0.90 fold effect on NF2-intact models.
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+m1 <- lm(log(IC50) ~  NF2Status:drug, data=d2 %>% filter(tumorType == 'schwannoma'))
+summary(m1)
+
+```
+
 
 
 ```{r fig.align='center', fig.width=10, fig.height=6}
 anova(m1)
 ```
 
+##Boxplots
+
+The data suggest that the response (as measured by Simpson AUC) to the panel of drugs is dependent on tumor type, with the schwannoma exhibiting reduced AUC after treatment. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
 
 ```{r fig.align='center', fig.width=10, fig.height=6}
-
+  
 ggplot(data=d, aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+```
 
-ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=organism)) + geom_boxplot()
+The data suggest that the response (as measured by log10(IC50)) to the panel of drugs is dependent on tumor type, with the human meningioma exhibiting reduced AUC after treatment relative to schwannoma. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
 
-
-hist(log10(d$IC50))
-
-quantile(log10(d$IC50), na.rm=T, probs=seq(0,1,by=.01))
+```{r fig.align='center', fig.width=10, fig.height=6}
 ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
-
-d$maxEfficacy
-
-ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=maxEfficacy, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
-
 
 ```
 
+If we instead look at maximum efficacy of the drugs, we see the same effect (albeit an inverse relationship).
+```{r fig.align='center', fig.width=10, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=maxEfficacy, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+```
 
-```{r, }
+Looking at the effect of each drug individually on log10(IC50) in the meningioma models, we observe that AZD2014 and Ganetespib have a reduced IC50 in the NF2 negative models as compared to NF2 wildtype. 
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'meningioma'), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ drug) + xlab('meningioma') + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+Looking at the effect of each drug individually on log10(IC50) on the schwannoma models, we find that AR42, bortezomib, CUDC907, GDC0980, GSK2126458, panobinostat, trametinib, and vorinostat have a reduced IC50 in the NF2 negative models as compared to NF2 wildtype cell lines. Note: there is only one human schwannoma model per drug per NF2 genotype. 
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'schwannoma'), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug) + xlab('meningioma') + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.text.x = (element_text(size = 10, angle = 90))) 
+```
+This is the same as above, just looking at the meningioma models - log10(IC50) - for CUDC, GSK and panobinostat. 
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'meningioma' & drug %in% c("CUDC907", "GSK2126458", "Panobinostat")), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free")
+```
+
+This is the same as above, just looking at the schwannoma models - log10(IC50) - for CUDC, GSK and panobinostat - split out by organism. The human models have decreased log10(IC50)s in the NF2-/- cell lines as compared to the NF2-intact cell lines. Note: there is only one human schwannoma model per drug per NF2 genotype. 
+
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'schwannoma' & drug %in% c("CUDC907", "GSK2126458", "Panobinostat")), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free")
+```
+
+Looking at the Simpson AUC tells a similar story as the IC50 for these three drugs in the two different tumor types. 
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'meningioma' & drug %in% c("CUDC907", "GSK2126458", "Panobinostat")), aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free")
+```
+
+Note: there is only one human schwannoma model per drug per NF2 genotype. 
+
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0 & tumorType == 'schwannoma' & drug %in% c("CUDC907", "GSK2126458", "Panobinostat")), aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free")
+```
+
+Looking at the Simpson AUC for all drugs used on the schwannoma cell lines suggest that AR42, AZD2014, bortezomib, CUDC907, GDC0980, GSK2126458, panobinostat, selumentiniib, and voriniostat may be selective for NF2 -/- human and mouse cells. Note: there is only one human schwannoma model per drug per NF2 genotype. 
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(tumorType == 'schwannoma'), aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free") + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.text.x = (element_text(size = 10, angle = 90))) + xlab('schwannoma') 
+```
+
+Similar to the IC50 data, the meningioma Simpson AUC response data only identifies everolimus as selective for NF2-/- meningioma cells. 
+
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(tumorType == 'meningioma'), aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ drug, scales = "free")+ theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.text.x = (element_text(size = 10, angle = 90))) + xlab('meningioma') 
+```
+
+Another outcome measure of drug effect is the maximum efficacy of each drug (higher values indicate a greater drug effect). In the human schwannoma cell lines we observe increased efficacy of AR42, AZD2014, CUDC907, everolimus, ganetespib, GDC0941, GDC0980, GSK2126458, lapatinib, OSU03012, panobinostat, trametinib, and vorinostat in the NF2 -/- cells as compared to NF2-intact cells. In the mouse models, we see increased efficacy of AR42, axitinib, AZD2014, CUDC907, bortezomib, everolimus, GSK2126458, panobinostat, perefosine, trametinib, and vorinostat in the NF2 -/- cells as compared to NF2-intact cells.
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(tumorType == 'schwannoma'), aes(y=maxEfficacy, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid(organism ~ drug, scales = "free") + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.text.x = (element_text(size = 10, angle = 90))) + xlab('schwannoma') 
+```
+In performing the same analysis with the meningioma models, we find that AR42, CUDC907, everolimus, and GDC0941 have increased max efficacy. 
+```{r fig.align='center', fig.width=11, fig.height=6}
+ggplot(data=d %>% filter(tumorType == 'meningioma'), aes(y=maxEfficacy, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ drug, scales = "free") + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), strip.text.x = (element_text(size = 10, angle = 90))) + xlab('meningioma') 
+```
+
+
+
+
+
+```{r}
 
 ggplot(data=data, aes(x=log10(IC50))) + geom_density()
 ggplot(data=data, aes(x=log10(IC50))) + geom_density()
