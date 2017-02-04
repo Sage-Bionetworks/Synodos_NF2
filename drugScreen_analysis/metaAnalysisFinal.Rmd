@@ -87,15 +87,9 @@ simp.overlap <- as.matrix(simp.m %>% select(GDC0941, Vorinostat, Axitinib, Panob
 metadata <- simp.m[,1:5]
 simp.m <- as.matrix(simp.m[,6:24])
 
-d2<-t(scale(t(simp.overlap)))
+pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
 
-pheatmap(mat = scale(simp.overlap), cluster_rows = FALSE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
-
-pheatmap(mat = simp.overlap, cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC) Clustered Y')
-
-pheatmap(mat = simp.m, cluster_rows = FALSE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
-
-pheatmap(mat = simp.m, cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC) Clustered Y')
+pheatmap(mat = scale(simp.m[1:7,]), cluster_rows = TRUE, annotation_row = metadata[1:7,] %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
 
 averaged.ic50 <- aggregate(d$IC50, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
 metadata2 <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
@@ -107,13 +101,9 @@ metadata2 <- ic50.m[,1:5]
 ic50.overlap <- as.matrix(ic50.m %>% select(GDC0941, Vorinostat, Axitinib, Panobinostat, Bortezomib, CUDC907, Everolimus, AR42, AZD2014, GDC0980, Ganetespib, GSK2126458))
 ic50.m <- as.matrix(ic50.m[,6:ncol(ic50.m)])
 
-pheatmap(mat = log(ic50.overlap), cluster_rows = FALSE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
+pheatmap(mat = log(ic50.overlap), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
 
-pheatmap(mat = log(ic50.overlap), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50) Clustered Y')
-
-pheatmap(mat = log(ic50.m), cluster_rows = FALSE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
-
-pheatmap(mat = log(ic50.m), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50) Clustered Y')
+pheatmap(mat = log(ic50.m[1:7,]), cluster_rows = TRUE, annotation_row = metadata2[1:7,] %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
 
 
 ```
