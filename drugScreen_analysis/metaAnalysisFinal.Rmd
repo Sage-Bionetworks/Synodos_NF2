@@ -1,0 +1,121 @@
+---
+title: "Synodos NF2 - Drug Screen Data Analysis"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    code_folding: hide
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r, echo=F}
+library(synapseClient)
+library(dplyr)
+library(tidyr)
+library("ggplot2")
+library(sjPlot)
+library(sjmisc)
+library(pheatmap)
+library(wesanderson)
+
+synapseLogin()
+
+d <- synGet("syn6138226")@filePath
+d <- read.table(file=d, sep = "\t", header = TRUE, fill = TRUE) %>%
+  select(-X, -trapezoid, -stdErr, -stage, -experiment) %>%
+  mutate(cellLine = as.character(cellLine))
+md <- synTableQuery("select * from syn3275123")@values
+md <- md[,c('ID','organism', 'NF2 Status')]
+colnames(md) <- c('cellLine','organism', 'NF2Status')
+d$cellLine[d$cellLine == 'MSC11'] = 'MS11'
+d <- merge(d, md)
+d$NF2Status[d$cellLine %in% c('HS01', 'MS01', 'MS02', 'MS03')] = 'negative'
+d$NF2Status[d$cellLine %in% c('HS11', 'MS11', 'MS12')] = 'positive'
+d$tumorType = NA
+d$tumorType[d$center == 'UCF'] = 'schwannoma'
+d$tumorType[d$center == 'MGH'] = 'meningioma'
+
+```
+
+#Effect of Tumor Type and NF2 status on drug response. 
+
+*Model: Simpson AUC as a function of tumor type, NF2 status, drug, NF2status\*drug, and organism.* This model includes all cell lines tested irrespective of organism or tumor type. The schwannoma model has an estimated 1.4-fold reduced Simpson AUC across all models as compared to the reference (meningioma). On the other hand, accounting for all other variables, NF2 status has a nonsignificant effect on Simpson AUC. Several drugs have a significant effect on Simpson AUC 
+
+```{r, fig.align='center', fig.width=10, fig.height=8}
+m1 <- lm(Simpson ~ tumorType + NF2Status + drug + NF2Status*drug + organism, data=d)
+
+set_theme("forest",
+          axis.title.size = .85, 
+          axis.textsize = .85, 
+          legend.size = .8, 
+          geom.label.size = 3.5)
+
+sjp.lm(m1)
+
+
+```
+
+The data suggest that the response (as measured by Simpson AUC) to the panel of drugs is dependent on tumor type, with the schwannoma exhibiting reduced AUC after treatment. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+  
+ggplot(data=d, aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+```
+
+The data suggest that the response (as measured by log10(IC50)) to the panel of drugs is dependent on tumor type, with the human meningioma exhibiting reduced AUC after treatment relative to schwannoma. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
+
+```{r fig.align='center', fig.width=10, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+
+```
+In summary, these data dempnstrate that differences in drug sensitivity is more closely correlated with tumor type than NF2 genotype. 
+
+#NF2 genotype effect on drug sensitivity.
+
+#Clustering of drug effects. 
+```{r fig.align='center', fig.width=10, fig.height=6}
+
+wes<-wes_palette("Zissou", 1000 , type="continuous")
+averaged.simp <- aggregate(d$Simpson, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
+metadata <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
+averaged.simp <- full_join(averaged.simp, metadata, by = c("drug", "cellLine"))
+simp.m <- spread(averaged.simp, drug, x)
+rownames(simp.m) <- simp.m$cellLine
+simp.overlap <- as.matrix(simp.m %>% select(GDC0941, Vorinostat, Axitinib, Panobinostat, Bortezomib, CUDC907, Everolimus, AR42, AZD2014, GDC0980, Ganetespib, GSK2126458))
+metadata <- simp.m[,1:5]
+simp.m <- as.matrix(simp.m[,6:24])
+
+d2<-t(scale(t(simp.overlap)))
+
+pheatmap(mat = scale(simp.overlap), cluster_rows = FALSE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+
+pheatmap(mat = simp.overlap, cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC) Clustered Y')
+
+pheatmap(mat = simp.m, cluster_rows = FALSE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+
+pheatmap(mat = simp.m, cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC) Clustered Y')
+
+averaged.ic50 <- aggregate(d$IC50, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
+metadata2 <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
+averaged.ic50 <- full_join(averaged.ic50, metadata2, by = c("drug", "cellLine"))
+averaged.ic50 <- filter(averaged.ic50, log(x) < 0)
+ic50.m <- spread(averaged.ic50, drug, x)
+rownames(ic50.m) <- ic50.m$cellLine
+metadata2 <- ic50.m[,1:5]
+ic50.overlap <- as.matrix(ic50.m %>% select(GDC0941, Vorinostat, Axitinib, Panobinostat, Bortezomib, CUDC907, Everolimus, AR42, AZD2014, GDC0980, Ganetespib, GSK2126458))
+ic50.m <- as.matrix(ic50.m[,6:ncol(ic50.m)])
+
+pheatmap(mat = log(ic50.overlap), cluster_rows = FALSE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
+
+pheatmap(mat = log(ic50.overlap), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50) Clustered Y')
+
+pheatmap(mat = log(ic50.m), cluster_rows = FALSE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
+
+pheatmap(mat = log(ic50.m), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50) Clustered Y')
+
+
+```
+
+
