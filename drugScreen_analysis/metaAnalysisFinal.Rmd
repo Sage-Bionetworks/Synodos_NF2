@@ -10,11 +10,11 @@ output:
     toc: yes
 ---
 
-```{r, echo=F}
+```{r, include=FALSE}
 library(synapseClient)
 library(dplyr)
 library(tidyr)
-library("ggplot2")
+library(ggplot2)
 library(sjPlot)
 library(sjmisc)
 library(pheatmap)
@@ -37,45 +37,68 @@ d$tumorType = NA
 d$tumorType[d$center == 'UCF'] = 'schwannoma'
 d$tumorType[d$center == 'MGH'] = 'meningioma'
 
-```
-
-#Effect of Tumor Type and NF2 status on drug response. 
-
-*Model: Simpson AUC as a function of tumor type, NF2 status, drug, NF2status\*drug, and organism.* This model includes all cell lines tested irrespective of organism or tumor type. The schwannoma model has an estimated 1.4-fold reduced Simpson AUC across all models as compared to the reference (meningioma). On the other hand, accounting for all other variables, NF2 status has a nonsignificant effect on Simpson AUC. Several drugs have a significant effect on Simpson AUC 
-
-```{r, fig.align='center', fig.width=10, fig.height=8}
-m1 <- lm(Simpson ~ tumorType + NF2Status + drug + NF2Status*drug + organism, data=d)
-
-set_theme("forest",
-          axis.title.size = .85, 
-          axis.textsize = .85, 
-          legend.size = .8, 
-          geom.label.size = 3.5)
-
-sjp.lm(m1)
-
+commondrugs<-c("GDC0941", "Vorinostat", "Axitinib", "Panobinostat", "Bortezomib", "CUDC907", "Everolimus", "AR42", "AZD2014", "GDC0980", "Ganetespib", "GSK2126458")
 
 ```
 
-The data suggest that the response (as measured by Simpson AUC) to the panel of drugs is dependent on tumor type, with the schwannoma exhibiting reduced AUC after treatment. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
+##Effect of Tumor Type and NF2 status on drug response. 
 
-```{r fig.align='center', fig.width=10, fig.height=6}
+We modeled the effect of NF2 genotype (NF2 positive or NF2 deficient), tumor type (schwannoma or meningioma), organism of cell origin (human or mouse) and drug type (drugs tested in all models) on the area under the curve (Simpson AUC) of the resulting dose response curves using a standard multiple linear model. Beta values (points) and 95% confidence intervals (bars), and significant findings are shown (values can be found in the subsequent table). The results suggest that the mouse cell lines are slightly more sensitive to the panel of drugs than the human cell lines. Tumor type may influence drug sensitivity, as the schwannoma models exhibited a 1.4 fold reduction in AUC as compared to the reference tumor type (meningioma). In contrast to these findings, NF2 status does not appear to have a significant impact on AUC, suggesting that organism and tumor type may be better predictors of drug sensitivity than NF2 status. 
+
+Several drugs also cause a significant reduction in AUC as compared to the reference treatment (AR42). Of these drugs, panobinostat, GSK2126458, CUDC907, and bortezomib have the most siginficant effect on AUC (*p<0.001*).
+
+###Figure 1: Contribution of drug screening variables to changes in Simpson area under the curve. 
+
+```{r, echo=FALSE, fig.align='center', fig.height=9, fig.width=10}
+d1<-filter(d, drug %in% commondrugs)
+
+m1 <- lm(Simpson ~ tumorType + NF2Status + drug + NF2Status*drug + organism, data=d1)
+
+sjp.setTheme(base = theme_gray(), title.align = "center")
+
+sjp.lm(fit = m1, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.values = FALSE)
+
+```
+
+```{r, include=FALSE}
+lmtable<-sjt.lm(m1)
+```
+
+###Table 1: Linear model values.
+
+<center>
+`r lmtable$knitr`
+</center>
+###Figure 2: AUC by tumor type and NF2 status.
+
+When we plot the AUC values split by tumor types and NF2 status, we find that the AUC has a greater change across tumor type (meningioma vs schwannoma) than NF2 status (pink vs turquoise). 
+
+
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=6}
   
-ggplot(data=d, aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+ggplot(data=d, aes(y=Simpson, x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism) + labs(title="", x="", y="Area Under the Curve (Simpson AUC)") + theme(strip.text.x = element_text(size = 12))
 ```
 
-The data suggest that the response (as measured by log10(IC50)) to the panel of drugs is dependent on tumor type, with the human meningioma exhibiting reduced AUC after treatment relative to schwannoma. Looking at the entire panel of small molecules, there appears to be a minimal impact of NF2 status on drug response. 
+###Figure 3: log(IC50) by tumor type and NF2 status.
 
-```{r fig.align='center', fig.width=10, fig.height=6}
-ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism)
+If we instead plot the log(IC50) values split by tumor types and NF2 status, we observe a greater change in IC50 as a function of tumor type than as a function of NF2 status. 
+
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=6}
+ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism, labeller =) + labs(title="", x="", y=expression('log(IC'[50]*")")) + theme(strip.text.x = element_text(size = 12))
 
 ```
-In summary, these data dempnstrate that differences in drug sensitivity is more closely correlated with tumor type than NF2 genotype. 
+In summary, these data dempnstrate that differences in drug sensitivity is more closely correlated with tumor type, drug type, and organism than NF2 genotype. 
 
-#NF2 genotype effect on drug sensitivity.
+##Clustering of drug effects. 
 
-#Clustering of drug effects. 
-```{r fig.align='center', fig.width=10, fig.height=6}
+###Figure 4: Clustering of AUC for all drugs used in schwannoma and meningioma.
+
+To interrogate these data further, we clustered drug response (Simpson AUC or log(IC50), scaled across all values to eliminate the effect of drug-target affinity/drug potency) for the panel of drugs tested in both schwannoma and meningioma. Red colors indicate lower scaled AUC/log(IC50) values, while blue colors indicate higher values.
+
+When plotting AUC, the cell lines cluster most strongly by tumor type, with the schwannoma models exhibiting greater sensivity to the panel of small molecules. A potential confounding factor to this finding is that the two tumor types were screened at different centers. We also observed that drugs targeting related targets/pathways also generally cluster together. Finally, AUC values also appears to cluster around the organism of origin (human or mouse). 
+
+
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=6}
 
 wes<-wes_palette("Zissou", 1000 , type="continuous")
 averaged.simp <- aggregate(d$Simpson, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
@@ -87,9 +110,22 @@ simp.overlap <- as.matrix(simp.m %>% select(GDC0941, Vorinostat, Axitinib, Panob
 metadata <- simp.m[,1:5]
 simp.m <- as.matrix(simp.m[,6:24])
 
-pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+### drug target annotations
+drug.annot<-synTableQuery("SELECT * FROM syn8228169")@values
+rownames(drug.annot) <- trimws(drug.annot[,1], which = "both")
+drug.annot <- as.data.frame((drug.annot[,-1]))
+rownames(drug.annot) <- sub("-", "", rownames(drug.annot))
+drug.annot2<-drug.annot[rownames(drug.annot) %in% colnames(simp.overlap),]
 
-pheatmap(mat = scale(simp.m[1:7,]), cluster_rows = TRUE, annotation_row = metadata[1:7,] %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metadata %>% select(tumorType, NF2Status, organism), annotation_col = drug.annot2 %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+```
+
+###Figure 5: Clustering of AUC for all drugs used in schwannoma.
+
+The schwannoma cell lines were tested against a broader panel of small molecules, the responses of which are plotted here. The cell lines cluster by organism. Clustering of the drugs by target/pathway type is less evident in this analysis.
+
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=6}
+pheatmap(mat = scale(simp.m[1:7,]), cluster_rows = TRUE, annotation_row = metadata[1:7,] %>% select(tumorType, NF2Status, organism), annotation_col = drug.annot %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
 
 averaged.ic50 <- aggregate(d$IC50, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
 metadata2 <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
@@ -100,12 +136,20 @@ rownames(ic50.m) <- ic50.m$cellLine
 metadata2 <- ic50.m[,1:5]
 ic50.overlap <- as.matrix(ic50.m %>% select(GDC0941, Vorinostat, Axitinib, Panobinostat, Bortezomib, CUDC907, Everolimus, AR42, AZD2014, GDC0980, Ganetespib, GSK2126458))
 ic50.m <- as.matrix(ic50.m[,6:ncol(ic50.m)])
-
-pheatmap(mat = log(ic50.overlap), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
-
-pheatmap(mat = log(ic50.m[1:7,]), cluster_rows = TRUE, annotation_row = metadata2[1:7,] %>% select(tumorType, NF2Status, organism), color = wes, cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'log(IC50)')
-
-
 ```
 
+###Figure 6: Clustering of IC50 for all drugs used in schwannoma and meningioma.
 
+When we plot scaled log(IC50) instead of AUC, we obtain similar results. Missing values are represented by white boxes. Cell lines cluster by tumor type and organism, and drugs generally cluster by targets and pathway type. 
+
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=5}
+pheatmap(mat = scale(log(ic50.overlap)), cluster_rows = TRUE, annotation_row = metadata2 %>% select(tumorType, NF2Status, organism), annotation_col = drug.annot2 %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'scaled log(IC50)')
+```
+
+###Figure 7: Clustering of IC50 for all drugs used in schwannoma.
+```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=5}
+pheatmap(mat = scale(log(ic50.m[1:7,])), cluster_rows = TRUE, annotation_row = metadata2[1:7,] %>% select(tumorType, NF2Status, organism), annotation_col = drug.annot %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'scaled log(IC50)')
+```
+
+##Summary
+These analyses suggest that across the drug screening panel, tumor type has the greatest correlation drug efficacy, as the schwannoma models are consistently more sensitive than the meningioma models. Conversely, NF2 status doesn't significantly contribute to drug efficacy. Furthermore, panobinostat, GSK2126458, CUDC907, and bortezomib are the most efficacious drugs as measured by AUC, independent of tumor type. 

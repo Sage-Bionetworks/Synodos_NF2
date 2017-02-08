@@ -1,12 +1,12 @@
 ---
 title: "Synodos NF2 - Drug Screen Data Analysis"
 output:
+  pdf_document:
+    toc: yes
   html_notebook:
     code_folding: hide
     toc: yes
   html_document:
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
@@ -170,10 +170,10 @@ ggplot(data=d %>% filter(tumorType == 'meningioma'), aes(y=maxEfficacy, x=tumorT
 
 
 ```{r}
+#
+#ggplot(data=data, aes(x=log10(IC50))) + geom_density()
+#ggplot(data=data, aes(x=log10(IC50))) + geom_density()
 
-ggplot(data=data, aes(x=log10(IC50))) + geom_density()
-ggplot(data=data, aes(x=log10(IC50))) + geom_density()
-
-head(data)
+#head(data)
 ```
 
