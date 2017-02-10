@@ -45,11 +45,11 @@ commondrugs<-c("GDC0941", "Vorinostat", "Axitinib", "Panobinostat", "Bortezomib"
 
 ##Effect of Tumor Type and NF2 status on drug response. 
 
-We modeled the effect of NF2 genotype (NF2 positive or NF2 deficient), tumor type (schwannoma or meningioma), organism of cell origin (human or mouse) and drug type (drugs tested in all models) on the area under the curve (Simpson AUC) of the resulting dose response curves using a standard multiple linear model. Beta values (points) and 95% confidence intervals (bars), and significant findings are shown (values can be found in the subsequent table). The overall results suggest that the effect of drugs are more prominent than the effect of NF2 status.  The mouse cell lines are slightly more sensitive to the panel of drugs than the human cell lines. Tumor type may influence drug sensitivity, as the schwannoma models exhibited a 1.4 fold reduction in AUC as compared to the reference tumor type (meningioma). 
+We modeled the effect of NF2 genotype (NF2 positive or NF2 deficient), tumor type (schwannoma or meningioma), organism of cell origin (human or mouse) and drug type (drugs tested in all models) on the area under the curve (Simpson AUC) of the resulting dose response curves using a standard multiple linear model. Beta values (points) and 95% confidence intervals (bars), and significant findings are shown (values can be found in the subsequent table). **The results suggest that the effect of drugs are more prominent than the effect of NF2 status.**  The mouse cell lines are slightly more sensitive to the panel of drugs than the human cell lines. Tumor type may influence drug sensitivity, as the schwannoma models exhibited a 1.4 fold reduction in AUC as compared to the reference tumor type (meningioma). 
 
 In contrast to these findings, NF2 status does not appear to have a significant impact on AUC in this model. To validate this, we generated linear models for the AUC of each drug within each tumor type as a function of NF2 status, and adjusted all p-values for multiple comparisons (not shown). These data demonstrated no significant association between NF2 status and AUC of a dose response curve. 
 
-Several drugs show significant reduction in AUC as compared to the reference treatment (AR42). Of these drugs, ganetespib, panobinostat, GSK2126458, bortezomib, and CUDC907 have the most significant association with AUC (*p<0.001*).
+Several drugs show significant reduction in AUC as compared to the reference treatment (AR42). **Of these drugs, ganetespib, panobinostat, GSK2126458, bortezomib, and CUDC907 have the most significant association with AUC (p<0.001).**
 
 We also modeled IC50 and maximum efficacy as a function of NF2 genotype, tumor type, organism, and drug treatment (data not shown). We observed a significant but marginal effect of NF2 status on maximum efficacy of the drugs. However, the effect of the drugs themselves as well as tumor type on maximum efficacy was significant and greater than the effect of NF2 status in this model. 
 
@@ -131,7 +131,7 @@ If we instead plot the log(IC50) values split by tumor types and NF2 status, we 
 ggplot(data=d %>% filter(log10(IC50) < 0), aes(y=log10(IC50), x=tumorType, fill=NF2Status)) + geom_boxplot() + facet_grid( ~ organism, labeller =) + labs(title="", x="", y=expression('log(IC'[50]*")")) + theme(strip.text.x = element_text(size = 12))
 
 ```
-In summary, these data dempnstrate that differences in drug sensitivity is more closely correlated with tumor type, drug type, and organism than NF2 genotype. 
+**In summary, these data dempnstrate that differences in drug sensitivity is more closely correlated with tumor type, drug type, and organism than NF2 genotype.** 
 
 ##Clustering of drug effects. 
 
@@ -139,7 +139,7 @@ In summary, these data dempnstrate that differences in drug sensitivity is more 
 
 To interrogate these data further, we clustered drug response (Simpson AUC or log(IC50), AUC was scaled across all values to eliminate the effect of drug-target affinity/drug potency) for the panel of drugs tested in both schwannoma and meningioma. Red colors indicate lower scaled AUC/log(IC50) values, while blue colors indicate higher values.
 
-When plotting AUC, the cell lines cluster most strongly by tumor type, with the schwannoma models exhibiting greater sensivity to the panel of small molecules. A potential confounding factor to this finding is that the two tumor types were screened at different centers. We also observed that drugs targeting related targets/pathways also generally cluster together. Finally, AUC values also appears to cluster around the organism of origin (human or mouse). 
+When plotting AUC, **the cell lines cluster most strongly by tumor type**, with the schwannoma models exhibiting greater sensivity to the panel of small molecules. A potential confounding factor to this finding is that the two tumor types were screened at different centers. We also observed that drugs targeting related targets/pathways also generally cluster together. Finally, AUC values also appears to cluster around the organism of origin (human or mouse). 
 
 
 ```{r, echo=FALSE, fig.align='center', fig.width=10, fig.height=6}
@@ -199,6 +199,6 @@ pheatmap(mat = scale(log(ic50.m[1:7,])), cluster_rows = TRUE, annotation_row = m
 ```
 
 ##Summary
-These analyses suggest that across the drug screening panel, tumor type has the greatest correlation drug efficacy, as the schwannoma models are consistently more sensitive than the meningioma models. Conversely, NF2 status doesn't significantly contribute to drug efficacy. Panobinostat, GSK2126458, CUDC907, and bortezomib are the most efficacious drugs as measured by AUC, independent of tumor type. 
+These analyses suggest that across the drug screening panel, **tumor type has the greatest correlation drug efficacy**, as the schwannoma models are consistently more sensitive than the meningioma models. **Conversely, NF2 status doesn't significantly contribute to drug efficacy. Panobinostat, GSK2126458, CUDC907, and bortezomib are the most efficacious drugs as measured by AUC, independent of tumor type.** 
 
-Different readouts of drug efficacy lead to slightly different interpretations. AUC suggests that the schwannoma models are more sensitive to the panel of small molecules, while IC50 suggests that the meningioma models are more sensitive. Furthermore, maximum efficacy of the panel of molecules is correlated with NF2 status, while AUC and IC50 are not. As a result, all measurements used to demonstrate drug potency (Simpson AUC, IC50, maximum efficacy) may need to be considered as they can lead to different conclusions. 
+Note: Different readouts of drug efficacy lead to slightly different interpretations. AUC suggests that the schwannoma models are more sensitive to the panel of small molecules, while IC50 suggests that the meningioma models are more sensitive. Furthermore, maximum efficacy of the panel of molecules is correlated with NF2 status, while AUC and IC50 are not. As a result, all measurements used to demonstrate drug potency (Simpson AUC, IC50, maximum efficacy) may need to be considered as they can lead to different conclusions. 
