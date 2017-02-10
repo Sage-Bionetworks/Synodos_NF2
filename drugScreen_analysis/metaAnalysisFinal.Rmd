@@ -1,5 +1,5 @@
 ---
-title: "Synodos NF2 - Drug Screen Data Analysis"
+title: "Synodos NF2 - drug screen metadata analysis"
 output:
   html_document:
     toc: yes
@@ -19,6 +19,8 @@ library(sjPlot)
 library(sjmisc)
 library(pheatmap)
 library(wesanderson)
+library(stargazer)
+
 
 synapseLogin()
 
@@ -43,32 +45,47 @@ commondrugs<-c("GDC0941", "Vorinostat", "Axitinib", "Panobinostat", "Bortezomib"
 
 ##Effect of Tumor Type and NF2 status on drug response. 
 
-We modeled the effect of NF2 genotype (NF2 positive or NF2 deficient), tumor type (schwannoma or meningioma), organism of cell origin (human or mouse) and drug type (drugs tested in all models) on the area under the curve (Simpson AUC) of the resulting dose response curves using a standard multiple linear model. Beta values (points) and 95% confidence intervals (bars), and significant findings are shown (values can be found in the subsequent table). The results suggest that the mouse cell lines are slightly more sensitive to the panel of drugs than the human cell lines. Tumor type may influence drug sensitivity, as the schwannoma models exhibited a 1.4 fold reduction in AUC as compared to the reference tumor type (meningioma). In contrast to these findings,N F2 status does not appear to have a significant impact on AUC in this model, suggesting that organism and tumor type are better predictors of drug sensitivity than NF2 status for this panel of drugs. To validate this, we generated linear models for the AUC of each drug within each tumor type as a function of NF2 status, and adjusted all p-values for multiple comparisons (not shown). These data demonstrated no significant association between NF2 status and AUC. 
+We modeled the effect of NF2 genotype (NF2 positive or NF2 deficient), tumor type (schwannoma or meningioma), organism of cell origin (human or mouse) and drug type (drugs tested in all models) on the area under the curve (Simpson AUC) of the resulting dose response curves using a standard multiple linear model. Beta values (points) and 95% confidence intervals (bars), and significant findings are shown (values can be found in the subsequent table). The overall results suggest that the effect of drugs are more prominent than the effect of NF2 status.  The mouse cell lines are slightly more sensitive to the panel of drugs than the human cell lines. Tumor type may influence drug sensitivity, as the schwannoma models exhibited a 1.4 fold reduction in AUC as compared to the reference tumor type (meningioma). 
 
-Several drugs are correlated with a significant reduction in AUC as compared to the reference treatment (AR42). Of these drugs, ganetespib, panobinostat, GSK2126458, bortezomib, and CUDC907 have the most significant association with AUC (*p<0.001*).
+In contrast to these findings, NF2 status does not appear to have a significant impact on AUC in this model. To validate this, we generated linear models for the AUC of each drug within each tumor type as a function of NF2 status, and adjusted all p-values for multiple comparisons (not shown). These data demonstrated no significant association between NF2 status and AUC of a dose response curve. 
+
+Several drugs show significant reduction in AUC as compared to the reference treatment (AR42). Of these drugs, ganetespib, panobinostat, GSK2126458, bortezomib, and CUDC907 have the most significant association with AUC (*p<0.001*).
 
 ###Figure 1: Contribution of drug screening variables to changes in Simpson area under the curve. 
 
 ```{r, echo=FALSE, fig.align='center', fig.height=6, fig.width=10}
 d1<-filter(d, drug %in% commondrugs)
 
-m1 <- lm(Simpson ~ tumorType + NF2Status + drug + organism, data=d1)
-
+modelAUC <- lm(Simpson ~ tumorType + NF2Status + drug + organism, data=d1)
+modelMaxEfficacy <- lm(maxEfficacy ~ tumorType + NF2Status + drug + organism, data=d1)
+modelIC50 <- lm(log10(IC50) ~ tumorType + NF2Status + drug + organism, data=d1)
 sjp.setTheme(base = theme_gray(), title.align = "center")
 
-sjp.lm(fit = m1, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.values = FALSE)
+sjp.lm(fit = modelAUC, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.values = FALSE)
+
+
+sjp.lm(fit = modelMaxEfficacy, type = "lm", title = 'Max Efficacy', y.offset = 0.3, show.values = FALSE)
+
+
+sjp.lm(fit = modelIC50, type = "lm", title = 'IC50', y.offset = 0.3, show.values = FALSE)
 
 ```
 
 ```{r, include=FALSE}
-lmtable<-sjt.lm(m1)
+lmtable <-sjt.lm(modelAUC,modelMaxEfficacy, modelIC50)
 ```
 
 ###Table 1: Linear model values.
 
+```{r, results='asis', eval=F, echo=F}
+stargazer(modelAUC, modelMaxEfficacy, header=FALSE, type='latex')
+```
+
 <center>
-`r lmtable$knitr`
+ `r lmtable$knitr`
 </center>
+
+
 
 ```{r, include=FALSE}
 ##linear models of each drug within tumor types demonstrate no correlation between AUC and NF2 status, not shown in report
