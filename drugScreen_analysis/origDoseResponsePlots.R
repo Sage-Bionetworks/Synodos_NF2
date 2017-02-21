@@ -12,8 +12,8 @@ library("ggplot2")
 get_drugResponse_stats <- function(conc,viability,...){
   res <- nplr(conc, viability,...)
   results <- getAUC(res)
-  results['goodNess_of_fit'] <- getGoodness(res)
-  results['stdErr'] <- getStdErr(res)
+  results['goodNess_of_fit'] <- getGoodness(res)[1]
+  results['stdErr'] <- getStdErr(res)[1]
   ICx_est = getEstimates(res, targets= c(.10,.20,.30,.40,.50,.60,.70,.80,.90))
   results['IC10'] = ICx_est[1,'x']
   results['IC20'] = ICx_est[2,'x']
@@ -46,6 +46,7 @@ tmp_iterator <- function(df){
     print(unique(df$cellLine))
     print(unique(df$drug))
     print(unique(df$experiment))
+    print(e)
     stop('stopped')
   })
 }
@@ -65,13 +66,11 @@ UCF_normViab <- UCF_normViab[, !colnames(UCF_normViab) %in% drop_cols]
 doseResp <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine', 'experiment'), 
                   .fun = tmp_iterator, .parallel = T)
 
-
-
 doseResp_r <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine', 'experiment','replicate'), 
-                  .fun = tmp_iterator, .parallel = T)
+                    .fun = tmp_iterator, .parallel = T)
 
 doseResp_new <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine'), 
-                    .fun = tmp_iterator, .parallel = T)
+                      .fun = tmp_iterator, .parallel = T)
 
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
 ###########
