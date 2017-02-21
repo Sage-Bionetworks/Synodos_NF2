@@ -1,15 +1,15 @@
 ---
-title: "doseResponseSummary"
+  title: "Meningioma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
 date: "2/20/2017"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, include=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library("synapseClient")
 library("nplr")
 library("plyr")
@@ -19,6 +19,9 @@ library("plotly")
 library("reshape2")
 library("ggplot2")
 library("foreach")
+library("stargazer")
+
+synapseLogin("allawayr","Warbler44")
 
 
 get_drugResponse_stats <- function(conc,viability,...){
@@ -79,27 +82,28 @@ doseResp <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine', 'experi
                   .fun = tmp_iterator, .parallel = T)
 
 doseResp_r <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine', 'experiment','replicate'), 
-                  .fun = tmp_iterator, .parallel = T)
-
-doseResp_new <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine'), 
                     .fun = tmp_iterator, .parallel = T)
 
+doseResp_new <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine'), 
+                      .fun = tmp_iterator, .parallel = T)
+
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
+
+myColors <- c("red4", "red2","firebrick4","mediumblue","royalblue3")
+names(myColors) <- c("MS01", "MS02", "MS03", "MS11", "MS12")
+colScaleMouse <- scale_color_manual(name = "grp",values = myColors)
+
+myColors <- c("mediumblue", "red4")
+names(myColors) <- c("HS01", "HS11")
+colScaleHuman <- scale_color_manual(name = "grp",values = myColors)
+
+
 ###########
 ```
 
-```{r}
+##Averaged dose response curves (human)
 
-```
-
-```{r}
-
-```
-
-
-```{r, eval=FALSE, include=FALSE}
-###old code to pull from for report
-
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # Human
 HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11") & UCF_normViab$drug %in% drugs,]
 
@@ -114,11 +118,17 @@ p1 <- p1 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p1 <- p1 + geom_line(data = HS_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p1 <- p1 + xlab('log10 micromolar conc') + ylab('cell viability %')
+p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
 p1 <- p1 + scale_x_continuous(breaks = labelVal, labels = sapply(labelVal, function(x) format(10^x,scientific = T)))
+p1 <- p1 + coord_cartesian(ylim = c(0, 125))
+p1 <- p1 + colScaleHuman
 p1
 ggsave(filename = "HS_drug_response_2Dplot.pdf",width = 8, height = 4)
+```
 
+##All response curves (human)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 HS_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("HS01","HS11") & doseResp_r$drug %in% drugs,]
 HS_doseResp_r <- HS_doseResp_r[order(HS_doseResp_r$IC50),]
@@ -130,10 +140,23 @@ p2 <- p2 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p2 <- p2 + geom_line(data = HS_doseResp_r, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = grp))
 p2 <- p2 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p2 <- p2 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p2 <- p2 + xlab('log10 micromolar conc') + ylab('cell viability %') 
+p2 <- p2 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p2 <- p2 + coord_cartesian(ylim = c(0, 125))
+p2 <- p2 + colScaleHuman
 p2
 
 ggsave(filename = "HS_rep_drug_response_2Dplot.pdf",width = 8, height = 4)
+```
+
+##Human Response table 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
+stargazer(distinct(filter(select(HS_doseResp, drug, cellLine, IC50, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11"))), type = "html", summary = FALSE)
+```
+
+## Average response curves (mouse)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 # Mouse
 MS_normViab <- UCF_normViab[grep('^MS', UCF_normViab$cellLine),]
@@ -149,9 +172,16 @@ p3 <- p3 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p3 <- p3 + geom_line(data = MS_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p3 <- p3 + facet_grid(experiment ~ drug) + theme_bw(base_size = 15)
 p3 <- p3 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p3 <- p3 + xlab('log10 micromolar conc') + ylab('cell viability %') 
+p3 <- p3 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p3 <- p3 + coord_cartesian(ylim = c(0, 125))
+p3 <- p3 + colScaleMouse
 p3
 ggsave(filename = "MS_drug_response_2Dplot.pdf",width = 8, height = 6)
+```
+
+## All response curves (mouse)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 MS_doseResp_r <- doseResp_r[grep('^MS', doseResp_r$cellLine),]
 MS_doseResp_r <- MS_doseResp_r[MS_doseResp_r$drug %in% drugs,]
@@ -164,13 +194,25 @@ p4 <- p4 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p4 <- p4 + geom_line(data = MS_doseResp_r, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = grp))
 p4 <- p4 + facet_grid(experiment ~ drug) + theme_bw(base_size = 15)
 p4 <- p4 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p4 <- p4 + xlab('log10 micromolar conc') + ylab('cell viability %') 
+p4 <- p4 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p4 <- p4 + coord_cartesian(ylim = c(0, 125))
+p4 <- p4 + colScaleMouse
 p4
 ggsave(filename = "MS_rep_drug_response_2Dplot.pdf",width = 8, height = 6)
 
-########################
-# Cell line Comparision
-########################
+```
+
+##Mouse Response table 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
+stargazer(distinct(filter(select(MS_doseResp, drug, cellLine, IC50, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01", "MS02", "MS03", "MS11", "MS12"))), type = "html", summary = FALSE)
+```
+
+## All drugs (human)
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+###old code to pull from for report
 
 # set 1: HS01, HS11
 comp_1_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11"),]
@@ -182,9 +224,16 @@ p5 <- p5 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p5 <- p5 + geom_line(data = comp_1_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p5 <- p5 + facet_wrap(~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
 p5 <- p5 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p5 <- p5 + xlab('log10 micromolar conc') + ylab('cell viability %') 
+p5 <- p5 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p5 <- p5 + colScaleHuman
 p5
 ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 6, height = 8)
+
+```
+
+##All drugs (mouse)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
 # set 2: MS01, MS02, MS03
 comp_2_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("MS01","MS02","MS03"),]
@@ -196,39 +245,9 @@ p6 <- p6 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p6 <- p6 + geom_line(data = comp_2_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p6 <- p6 + facet_wrap( ~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
 p6 <- p6 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p6 <- p6 + xlab('log10 micromolar conc') + ylab('cell viability %') 
+p6 <- p6 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p6 <- p6 + colScaleMouse
 p6
 ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 6, height = 8)
 
-
-# set 3: MS01, MS02, HS01
-comp_3_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("MS01","MS02","HS01"),]
-comp_3_drugResp <- doseResp_new[doseResp_new$cellLine %in% c("MS01","MS02","HS01"),]
-
-p7 <- ggplot(comp_3_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p7 <- p7 + geom_point(aes_string(color="cellLine"),size=0.5) 
-p7 <- p7 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
-p7 <- p7 + geom_line(data = comp_3_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
-p7 <- p7 + facet_wrap( ~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
-p7 <- p7 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p7 <- p7 + xlab('log10 micromolar conc') + ylab('cell viability %') 
-p7
-ggsave(filename = "compare3_drug_response_2Dplot.pdf",width = 6, height = 8)
-
-# set 4: HS11, MS12
-comp_4_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS11","MS12"),]
-comp_4_drugResp <- doseResp[doseResp$cellLine %in% c("HS11","MS12"),]
-
-p8 <- ggplot(comp_4_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p8 <- p8 + geom_point(aes_string(color="cellLine"),size=0.5) 
-p8 <- p8 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
-p8 <- p8 + geom_line(data = comp_4_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
-p8 <- p8 + facet_wrap( ~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
-p8 <- p8 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p8 <- p8 + xlab('log10 micromolar conc') + ylab('cell viability %') 
-p8
-ggsave(filename = "compare4_drug_response_2Dplot.pdf",width = 6, height = 8)
-
-
 ```
-
