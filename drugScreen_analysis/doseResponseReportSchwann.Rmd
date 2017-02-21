@@ -21,7 +21,7 @@ library("ggplot2")
 library("foreach")
 library("stargazer")
 
-synapseLogin("allawayr","Warbler44")
+synapseLogin()
 
 
 get_drugResponse_stats <- function(conc,viability,...){
