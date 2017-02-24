@@ -1,15 +1,15 @@
 ---
-  title: "Meningioma Dose Response Summary"
+title: "Schwannoma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
 date: "2/20/2017"
 output: html_document
 ---
   
-  ```{r setup, include=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 library("synapseClient")
 library("nplr")
 library("plyr")
@@ -87,13 +87,15 @@ doseResp_r <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine', 'expe
 doseResp_new <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine'), 
                       .fun = tmp_iterator, .parallel = T)
 
+doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
+
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
 
-myColors <- c("red4", "red2","firebrick4","mediumblue","royalblue3")
-names(myColors) <- c("MS01", "MS02", "MS03", "MS11", "MS12")
-colScaleMouse <- scale_color_manual(name = "grp",values = myColors)
+myColors1 <- c("#A31621", "#FF6863","#470024","#3C91E6","#2B4162")
+names(myColors1) <- c("MS01", "MS02", "MS03", "MSC11", "MS12")
+colScaleMouse <- scale_color_manual(name = "grp", values = myColors1)
 
-myColors <- c("mediumblue", "red4")
+myColors <- c("#2B4162", "#A31621")
 names(myColors) <- c("HS01", "HS11")
 colScaleHuman <- scale_color_manual(name = "grp",values = myColors)
 
@@ -103,7 +105,7 @@ colScaleHuman <- scale_color_manual(name = "grp",values = myColors)
 
 ##Averaged dose response curves (human)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 # Human
 HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11") & UCF_normViab$drug %in% drugs,]
 
@@ -123,12 +125,12 @@ p1 <- p1 + scale_x_continuous(breaks = labelVal, labels = sapply(labelVal, funct
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
 p1 <- p1 + colScaleHuman
 p1
-ggsave(filename = "HS_drug_response_2Dplot.pdf",width = 8, height = 4)
+ggsave(filename = "HS_drug_response_2Dplot.pdf",width = 8, height = 3)
 ```
 
 ##All response curves (human)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 
 HS_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("HS01","HS11") & doseResp_r$drug %in% drugs,]
 HS_doseResp_r <- HS_doseResp_r[order(HS_doseResp_r$IC50),]
@@ -145,18 +147,18 @@ p2 <- p2 + coord_cartesian(ylim = c(0, 125))
 p2 <- p2 + colScaleHuman
 p2
 
-ggsave(filename = "HS_rep_drug_response_2Dplot.pdf",width = 8, height = 4)
+ggsave(filename = "HS_rep_drug_response_2Dplot.pdf",width = 8, height = 3)
 ```
 
 ##Human Response table 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
-stargazer(distinct(filter(select(HS_doseResp, drug, cellLine, IC50, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11"))), type = "html", summary = FALSE)
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis", fig.align="center"}
+stargazer(distinct(filter(select(HS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11"))), type = "html", summary = FALSE)
 ```
 
 ## Average response curves (mouse)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 
 # Mouse
 MS_normViab <- UCF_normViab[grep('^MS', UCF_normViab$cellLine),]
@@ -181,7 +183,7 @@ ggsave(filename = "MS_drug_response_2Dplot.pdf",width = 8, height = 6)
 
 ## All response curves (mouse)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
 
 MS_doseResp_r <- doseResp_r[grep('^MS', doseResp_r$cellLine),]
 MS_doseResp_r <- MS_doseResp_r[MS_doseResp_r$drug %in% drugs,]
@@ -204,14 +206,14 @@ ggsave(filename = "MS_rep_drug_response_2Dplot.pdf",width = 8, height = 6)
 
 ##Mouse Response table 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
-stargazer(distinct(filter(select(MS_doseResp, drug, cellLine, IC50, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01", "MS02", "MS03", "MS11", "MS12"))), type = "html", summary = FALSE)
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis", fig.align="center"}
+stargazer(distinct(filter(select(MS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01", "MS02", "MS03", "MS11", "MS12"))), type = "html", summary = FALSE)
 ```
 
 ## All drugs (human)
 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.height=10}
 ###old code to pull from for report
 
 # set 1: HS01, HS11
@@ -227,13 +229,13 @@ p5 <- p5 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p5 <- p5 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p5 <- p5 + colScaleHuman
 p5
-ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 6, height = 8)
+ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 6, height = 15)
 
 ```
 
 ##All drugs (mouse)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.height=12}
 
 # set 2: MS01, MS02, MS03
 comp_2_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("MS01","MS02","MS03"),]
@@ -248,6 +250,6 @@ p6 <- p6 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p6 <- p6 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p6 <- p6 + colScaleMouse
 p6
-ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 6, height = 8)
+ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 6, height = 10)
 
 ```
