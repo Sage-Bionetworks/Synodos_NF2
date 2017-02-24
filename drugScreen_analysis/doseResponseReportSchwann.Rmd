@@ -2,14 +2,16 @@
 title: "Schwannoma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
 date: "2/20/2017"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
   
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library("synapseClient")
 library("nplr")
 library("plyr")
@@ -19,8 +21,7 @@ library("plotly")
 library("reshape2")
 library("ggplot2")
 library("foreach")
-library("stargazer")
-
+library("pander")
 synapseLogin()
 
 
@@ -91,11 +92,11 @@ doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
 
-myColors1 <- c("#A31621", "#FF6863","#470024","#3C91E6","#2B4162")
+myColors1 <- c("#BF2B2B", "#5E0F22","#EC91D8","#384DEA","#4D9DE0")
 names(myColors1) <- c("MS01", "MS02", "MS03", "MSC11", "MS12")
 colScaleMouse <- scale_color_manual(name = "grp", values = myColors1)
 
-myColors <- c("#2B4162", "#A31621")
+myColors <- c("#BF2B2B", "#384DEA")
 names(myColors) <- c("HS01", "HS11")
 colScaleHuman <- scale_color_manual(name = "grp",values = myColors)
 
@@ -104,9 +105,9 @@ colScaleHuman <- scale_color_manual(name = "grp",values = myColors)
 ```
 
 ##Averaged dose response curves (human)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
-# Human
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
 HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11") & UCF_normViab$drug %in% drugs,]
 
 HS_doseResp <- doseResp[doseResp$cellLine %in% c("HS01","HS11") & doseResp$drug %in% drugs,]
@@ -116,21 +117,21 @@ labelVal <- as.integer(c(min(log10(HS_normViab$conc*(1e+6))), median(log10(HS_no
 
 p1 <- ggplot(HS_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p1 <- p1 + geom_point(aes_string(color="cellLine")) 
-p1 <- p1 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p1 <- p1 + geom_line(data = HS_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
-p1 <- p1 + scale_x_continuous(breaks = labelVal, labels = sapply(labelVal, function(x) format(10^x,scientific = T)))
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
+p1 <- p1 + guides(color=guide_legend(title="Cell Line"))
 p1 <- p1 + colScaleHuman
 p1
-ggsave(filename = "HS_drug_response_2Dplot.pdf",width = 8, height = 3)
+ggsave(filename = "HS_drug_response_2Dplot.pdf",width = 8, height = 4)
 ```
 
 ##All response curves (human)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
 
 HS_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("HS01","HS11") & doseResp_r$drug %in% drugs,]
 HS_doseResp_r <- HS_doseResp_r[order(HS_doseResp_r$IC50),]
@@ -138,27 +139,32 @@ HS_doseResp_r$grp <- paste(HS_doseResp_r$cellLine,HS_doseResp_r$replicate)
 
 p2 <- ggplot(HS_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p2 <- p2 + geom_point(aes_string(color="cellLine")) 
-p2 <- p2 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p2 <- p2 + geom_line(data = HS_doseResp_r, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = grp))
 p2 <- p2 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p2 <- p2 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p2 <- p2 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p2 <- p2 + coord_cartesian(ylim = c(0, 125))
+p2 <- p2 + guides(color=guide_legend(title="Cell Line"))
 p2 <- p2 + colScaleHuman
 p2
 
-ggsave(filename = "HS_rep_drug_response_2Dplot.pdf",width = 8, height = 3)
+ggsave(filename = "HS_rep_drug_response_2Dplot.pdf",width = 8, height = 4)
 ```
 
-##Human Response table 
+##Human response table 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis", fig.align="center"}
-stargazer(distinct(filter(select(HS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11"))), type = "html", summary = FALSE)
+```{r pander, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis", fig.align="center"}
+HS_doseResp$IC50_nM<-HS_doseResp$IC50*1000000000
+
+foo<-distinct(filter(dplyr::select(HS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11")))
+colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Simpson AUC")
+pander(foo)
 ```
 
 ## Average response curves (mouse)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=5}
 
 # Mouse
 MS_normViab <- UCF_normViab[grep('^MS', UCF_normViab$cellLine),]
@@ -176,14 +182,16 @@ p3 <- p3 + facet_grid(experiment ~ drug) + theme_bw(base_size = 15)
 p3 <- p3 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p3 <- p3 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p3 <- p3 + coord_cartesian(ylim = c(0, 125))
+p3 <- p3 + guides(color=guide_legend(title="Cell Line"))
 p3 <- p3 + colScaleMouse
 p3
-ggsave(filename = "MS_drug_response_2Dplot.pdf",width = 8, height = 6)
+ggsave(filename = "MS_drug_response_2Dplot.pdf",width = 6, height = 4)
 ```
 
 ## All response curves (mouse)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center"}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=5}
 
 MS_doseResp_r <- doseResp_r[grep('^MS', doseResp_r$cellLine),]
 MS_doseResp_r <- MS_doseResp_r[MS_doseResp_r$drug %in% drugs,]
@@ -198,22 +206,27 @@ p4 <- p4 + facet_grid(experiment ~ drug) + theme_bw(base_size = 15)
 p4 <- p4 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p4 <- p4 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p4 <- p4 + coord_cartesian(ylim = c(0, 125))
+p4 <- p4 + guides(color=guide_legend(title="Cell Line"))
 p4 <- p4 + colScaleMouse
 p4
-ggsave(filename = "MS_rep_drug_response_2Dplot.pdf",width = 8, height = 6)
+ggsave(filename = "MS_rep_drug_response_2Dplot.pdf",width = 8, height = 5)
 
 ```
 
-##Mouse Response table 
+##Mouse response table 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis", fig.align="center"}
-stargazer(distinct(filter(select(MS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01", "MS02", "MS03", "MS11", "MS12"))), type = "html", summary = FALSE)
+```{r pander2, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, fig.align="center"}
+MS_doseResp$IC50_nM <- MS_doseResp$IC50*1000000000
+
+foo<-distinct(filter(select(MS_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01", "MS02", "MS03", "MS11", "MS12")))
+colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Simpson AUC")
+pander(foo)
 ```
 
 ## All drugs (human)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.height=10}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=12}
 ###old code to pull from for report
 
 # set 1: HS01, HS11
@@ -222,20 +235,22 @@ comp_1_drugResp <- doseResp[doseResp$cellLine %in% c("HS01","HS11"),]
 
 p5 <- ggplot(comp_1_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p5 <- p5 + geom_point(aes_string(color="cellLine"),size=0.5) 
-p5 <- p5 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
+#p5 <- p5 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p5 <- p5 + geom_line(data = comp_1_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p5 <- p5 + facet_wrap(~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
 p5 <- p5 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p5 <- p5 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p5 <- p5 + guides(color=guide_legend(title="Cell Line"))
 p5 <- p5 + colScaleHuman
 p5
-ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 6, height = 15)
+ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 8, height = 12)
 
 ```
 
 ##All drugs (mouse)
+####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.height=12}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=12}
 
 # set 2: MS01, MS02, MS03
 comp_2_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("MS01","MS02","MS03"),]
@@ -243,13 +258,14 @@ comp_2_drugResp <- doseResp_new[doseResp_new$cellLine %in% c("MS01","MS02","MS03
 
 p6 <- ggplot(comp_2_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p6 <- p6 + geom_point(aes_string(color="cellLine"),size=0.5) 
-p6 <- p6 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
+#p6 <- p6 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p6 <- p6 + geom_line(data = comp_2_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p6 <- p6 + facet_wrap( ~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
 p6 <- p6 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p6 <- p6 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
+p6 <- p6 + guides(color=guide_legend(title="Cell Line"))
 p6 <- p6 + colScaleMouse
 p6
-ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 6, height = 10)
+ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 8, height = 12)
 
 ```
