@@ -22,6 +22,7 @@ library("reshape2")
 library("ggplot2")
 library("foreach")
 library('pander')
+library('tables')
 synapseLogin()
 
 get_drugResponse_stats <- function(conc,viability,...){
@@ -88,33 +89,38 @@ doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
 ###########
 
-myColors <- c("#384DEA", "#BF2B2B", "#EC91D8")
-names(myColors) <- c("Syn1", "Syn5", "Syn6")
+myColors <- c("#384DEA", "#EC91D8", "#BF2B2B")
+names(myColors) <- c("AC-CRISPR", "BenMen", "Primary")
 colScale <- scale_color_manual(name = "grp",values = myColors)
+
+group <- as.data.frame(cbind(c(rep("AC-CRISPR", 5),"BenMen",rep("Primary",3)), c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12")))
+names(group) <- c('Cell.Type','cellLine')
+
+MGH_normViab <- full_join(MGH_normViab, group)
+doseResp <-full_join(doseResp, group)
+                    
 
 ```
 
 ##Averaged response curve
-####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
 # Human
-SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1","Syn5", "Syn6") & MGH_normViab$drug %in% drugs,]
+SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs,]
 
-SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1","Syn5", "Syn6") & doseResp$drug %in% drugs,]
+SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs,]
 SYN_doseResp <- SYN_doseResp[order(SYN_doseResp$IC50),]
 
 labelVal <- as.integer(c(min(log10(SYN_normViab$conc*(1e+6))), median(log10(SYN_normViab$conc*(1e+6))), max(log10(SYN_normViab$conc*(1e+6)))))
 
 p1 <- ggplot(SYN_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p1 <- p1 + geom_point(aes_string(color="cellLine")) 
-p1 <- p1 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
-p1 <- p1 + geom_line(data = SYN_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
+p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
+p1 <- p1 + geom_line(data = SYN_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
 p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Line"))
+p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
 p1 <- p1 + colScale
 p1
 ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 8, height = 4)
@@ -123,9 +129,9 @@ ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 8, height = 4)
 ##All response curves 
 ####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
+```{r, eval=FALSE, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
 
-SYN_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("Syn1","Syn5", "Syn6") & doseResp_r$drug %in% drugs,]
+SYN_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp_r$drug %in% drugs,]
 SYN_doseResp_r <- SYN_doseResp_r[order(SYN_doseResp_r$IC50),]
 SYN_doseResp_r$grp <- paste(SYN_doseResp_r$cellLine,SYN_doseResp_r$replicate)
 
@@ -148,10 +154,13 @@ ggsave(filename = "SYN_rep_drug_response_2Dplot.pdf",width = 8, height = 3)
 
 ```{r pander, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
 SYN_doseResp$IC50_nM <- SYN_doseResp$IC50*1000000000
+SYN_doseResp$maxEfficacy100 <- SYN_doseResp$maxEfficacy*100
 
-foo<-distinct(filter(dplyr::select(SYN_doseResp, drug, cellLine, IC50_nM, Simpson), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("Syn1", "Syn5", "Syn6")))
-colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Simpson AUC")
-pander(foo)
+foo<-distinct(filter(dplyr::select(SYN_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12")))
+colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response")
+
+
+tabular(. ~ Format(digits=2) * (`IC50 (nM)` + `Max Response`), data = foo)
 ```
 
 ##All drugs 
@@ -159,11 +168,11 @@ pander(foo)
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=6}
 
-comp_1_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1","Syn5", "Syn6"),]
-comp_1_drugResp <- doseResp[doseResp$cellLine %in% c("Syn1","Syn5", "Syn6"),]
+comp_1_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"),]
+comp_1_drugResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"),]
 
 p5 <- ggplot(comp_1_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p5 <- p5 + geom_point(aes_string(color="cellLine"),size=0.5) 
+p5 <- p5 + geom_point(aes_string(color="cellLine"), size=0.5) 
 p5 <- p5 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p5 <- p5 + geom_line(data = comp_1_drugResp, aes(x = fittedX+6, y = fittedY*100, colour = cellLine, group = cellLine))
 p5 <- p5 + facet_wrap(~ drug, ncol = 5) + theme_bw(base_size = 14) + theme(legend.position=c(0.5,0.15))

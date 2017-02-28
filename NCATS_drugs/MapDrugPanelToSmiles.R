@@ -7,7 +7,7 @@ library(ChemmineR)
 synapseLogin()
 
 x<-synGet("syn8314523")@filePath
-drugdat<-read.table(x, sep = ",", header = TRUE, fill = NA)
+drugdat<-read.table(x, sep = ",", header = TRUE, fill = TRUE)
 
 mols<-unique(drugdat$Sample.Name)
 
