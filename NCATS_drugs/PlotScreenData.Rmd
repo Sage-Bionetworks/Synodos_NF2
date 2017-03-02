@@ -1,0 +1,216 @@
+---
+title: "NCATS Report"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+
+```{r, include=FALSE}
+library(synapseClient)
+library(ggplot2)
+library(dplyr)
+library(viridis)
+library(tidyr)
+library(purrr)
+synapseLogin()
+```
+
+```{r, include=FALSE}
+x<-synGet("syn8314523")@filePath
+drugdat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE)
+
+colnames(drugdat) <- c('Protocol.Name', 'Sample.ID', 'Cell.Line', 'Cell.Type', 
+                       'NF2.Status', 'AC50.uM', 'CRC', 'Max.Resp', 'Log.AC50.uM', 
+                       'Compound.Name', 'AUC', 'AUC.Fit', 'Gene.Name')
+```
+
+##Max Response colored by selectivity for NF2 -/-. Yellow points are more selective drugs. Labeled drugs have a 4-fold or greater max response in the plotted NF2 mutant cell line as compared to NF2 wild-type.
+
+```{r, echo=FALSE, fig.width=6}
+sub<-select(drugdat, Cell.Line, Max.Resp, Compound.Name)
+
+sub2 <- sub %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Max.Resp)
+    })) %>% 
+  unnest(data)
+
+ggplot(sub2, aes(x= HS01, y=HS12)) +
+    geom_point(stat = "identity", aes(color=(HS01/HS12))) + 
+    coord_fixed() +
+    scale_color_viridis() +
+    geom_text(data=subset(sub2, HS01/HS12>=4), aes(label = Compound.Name), size = 2)
+
+ggsave("HS01_HS12_MaxResponse_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= MS02, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(MS02/HS12))) + 
+  coord_fixed() +
+  scale_color_viridis() +
+  geom_text(data=subset(sub2, MS02/HS12>=4), aes(label = Compound.Name), size = 2)
+
+ggsave("MS02_HS12_MaxResponse_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn5/Syn1))) + 
+  coord_fixed() +
+  scale_color_viridis() +
+  geom_text(data=subset(sub2, Syn5/Syn1>=4), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_MaxResponse_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn6/Syn1))) + 
+  coord_fixed() +
+  scale_color_viridis() +
+  geom_text(data=subset(sub2, Syn6/Syn1>=4), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_MaxResponse_Selectivity.png", height = 6, width = 6)
+
+
+```
+
+##AUC colored by selectivity for NF2 -/-. Yellow points are more selective drugs. Labeled drugs have a 1.5-fold or greater difference in AUC in the plotted NF2 mutant cell line as compared to NF2 wild-type (lower AUC in NF2 mutant cell line).
+
+```{r, echo=FALSE, fig.width=6}
+sub3 <- select(drugdat, Cell.Line, AUC, Compound.Name)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, AUC)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4, aes(x= HS01, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12/HS01))) + 
+  coord_fixed() +
+  scale_color_viridis(option = "A") +
+  geom_text(data=subset(sub4, HS12/HS01>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("HS01_HS12_AUC_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= MS02, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12/MS02))) + 
+  coord_fixed() +
+  scale_color_viridis(option = "A") +
+  geom_text(data=subset(sub4, HS12/MS02>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("MS02_HS12_AUC_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1/Syn5))) + 
+  coord_fixed() +
+  scale_color_viridis(option = "A") +
+  geom_text(data=subset(sub4, Syn1/Syn5>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_AUC_Selectivity.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1/Syn6))) + 
+  coord_fixed() +
+  scale_color_viridis(option = "A") +
+  geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AUC_Selectivity.png", height = 6, width = 6)
+
+```
+
+##Maximum response colored by average potency. Yellow points are more potent drugs (average of measurements for both cell lines plotted). Labeled drugs have a an average maximum response of 99% or greater for the plotted cell lines. 
+
+```{r, echo=FALSE, fig.width=6}
+ggplot(sub2, aes(x= HS01, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12+HS01)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = , option = "B") +
+  geom_text(data=subset(sub2, ((HS01+HS12)/2)>=99), aes(label = Compound.Name), size = 2)
+
+ggsave("HS01_HS12_MaxResponse_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= MS02, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12+MS02)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = , option = "B") +
+  geom_text(data=subset(sub2, ((MS02+HS12)/2)>=99), aes(label = Compound.Name), size = 2)
+
+ggsave("MS02_HS12_MaxResponse_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1+Syn5)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = , option = "B") +
+  geom_text(data=subset(sub2, ((Syn1+Syn5)/2)>=99), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_MaxResponse_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub2, aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1+Syn6)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = , option = "B") +
+  geom_text(data=subset(sub2, ((Syn1+Syn6)/2)>=99), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_MaxResponse_AvgPotency.png", height = 6, width = 6)
+
+```
+
+##AUC, colored by average potency. Yellow points are more potent drugs (average of measurements for both cell lines plotted). Labeled drugs have an average AUC of 250 or less for both plotted lines. 
+
+```{r, echo=FALSE, fig.width=6}
+sub3 <- select(drugdat, Cell.Line, AUC, Compound.Name)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, AUC)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4, aes(x= HS01, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12+HS01)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = -1, option = "C") +
+  geom_text(data=subset(sub4, ((HS01+HS12)/2)<=250), aes(label = Compound.Name), size = 2)
+
+ggsave("HS01_HS12_AUC_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= MS02, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12+MS02)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = -1, option = "C") +
+  geom_text(data=subset(sub4, ((MS02+HS12)/2)<=250), aes(label = Compound.Name), size = 2)
+
+ggsave("MS02_HS12_AUC_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1+Syn5)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = -1, option = "C") +
+  geom_text(data=subset(sub4, ((Syn1+Syn5)/2)<=250), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_AUC_AvgPotency.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1+Syn6)/2)) + 
+  coord_fixed() +
+  scale_color_viridis(direction = -1, option = "C") +
+  geom_text(data=subset(sub4, ((Syn1+Syn6)/2)<=250), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AUC_AvgPotency.png", height = 6, width = 6)
+
+```
+
+```{r, eval=FALSE, include=FALSE}
+intersect(intersect(filter(sub4, Syn1/Syn5>1.25)$Compound.Name, filter(sub4, Syn1/Syn6>1.25)$Compound.Name), filter(sub4, HS12/HS01>1.25)$Compound.Name)
+
+```
+
