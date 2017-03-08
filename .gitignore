@@ -10,3 +10,11 @@
 *.html
 
 *.pdf
+
+*.txt
+
+*.RData
+
+*.nb.html
+
+*.tex
