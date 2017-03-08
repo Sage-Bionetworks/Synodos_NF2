@@ -1,7 +1,7 @@
 ---
 title: "Meningioma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
-date: "2/20/2017"
+date: "3/8/2017"
 output:
   pdf_document: 
     latex_engine: xelatex
@@ -10,7 +10,7 @@ tables: true
 ---
   
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r, include=FALSE}
@@ -45,7 +45,7 @@ get_drugResponse_stats <- function(conc,viability,...){
   results['IC70'] = ICx_est[7,'x']
   results['IC80'] = ICx_est[8,'x']
   results['IC90'] = ICx_est[9,'x']
-  results['maxEfficacy'] = max(getYcurve(res)) #get the maximum efficacy of the drug
+  results['maxEfficacy'] = (1-min(getYcurve(res))) #get the maximum efficacy of the drug
   results['bottom_asymptote'] = res@pars['bottom']
   results['top_asymptote'] = res@pars['top']
   results['hillSlope'] =  res@pars['scal']
@@ -94,7 +94,7 @@ doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
 ###########
 
-myColors <- c("#384DEA", "#EC91D8", "#BF2B2B")
+myColors <- c("#384DEA", "#C6A40B", "#BF2B2B")
 names(myColors) <- c("AC-CRISPR", "BenMen", "Primary")
 colScale <- scale_color_manual(name = "grp",values = myColors)
 
@@ -111,10 +111,9 @@ doseResp_new <-full_join(doseResp_new, group)
 
 ```
 
-##Averaged response curve
+##Averaged response curves
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
-# Human
 SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs,]
 
 SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs,]
@@ -134,34 +133,36 @@ p1 <- p1 + colScale
 p1
 ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 8, height = 4)
 ```
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
+SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs,]
 
-##All response curves 
-####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
+SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs,]
+SYN_doseResp <- SYN_doseResp[order(SYN_doseResp$IC50),]
+
+labelVal <- as.integer(c(min(log10(SYN_normViab$conc*(1e+6))), median(log10(SYN_normViab$conc*(1e+6))), max(log10(SYN_normViab$conc*(1e+6)))))
+
+p1 <- ggplot(SYN_normViab, aes(x = log10(conc*(1e+6)), y = 100-normViability*100)) 
+p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
+p1 <- p1 + geom_line(data = SYN_doseResp, aes(x = fittedX+6, y = 100-fittedY*100, colour = Cell.Type, group = cellLine))
+p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
+p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
+p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('% response')
+p1 <- p1 + coord_cartesian(ylim = c(-25, 125))
+p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
+p1 <- p1 + colScale
+p1
+ggsave(filename = "SYN_drug_response_inhibition_2Dplot.pdf",width = 8, height = 4)
+```
 
 ```{r, eval=FALSE, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
-
 SYN_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp_r$drug %in% drugs,]
 SYN_doseResp_r <- SYN_doseResp_r[order(SYN_doseResp_r$IC50),]
 SYN_doseResp_r$grp <- paste(SYN_doseResp_r$cellLine,SYN_doseResp_r$replicate)
-
-p2 <- ggplot(SYN_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p2 <- p2 + geom_point(aes(color=Cell.Type), size = 0.1) 
-p2 <- p2 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
-p2 <- p2 + geom_line(data = SYN_doseResp_r, aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
-p2 <- p2 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
-p2 <- p2 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p2 <- p2 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
-p2 <- p2 + coord_cartesian(ylim = c(0, 125))
-p2 <- p2 + guides(color=guide_legend(title="Cell Line"))
-p2 <- p2 + colScale
-p2
-
-ggsave(filename = "SYN_rep_drug_response_2Dplot.pdf",width = 8, height = 3)
 ```
 
 ##Response table 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE, results="asis"}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis"}
 SYN_doseResp$IC50_nM <- SYN_doseResp$IC50*1000000000
 SYN_doseResp$maxEfficacy100 <- SYN_doseResp$maxEfficacy*100
 
@@ -175,7 +176,6 @@ latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 2) * Heading
 ```
 
 ##All drugs 
-####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
 
 ```{r, echo=FALSE, fig.align="center", fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 
