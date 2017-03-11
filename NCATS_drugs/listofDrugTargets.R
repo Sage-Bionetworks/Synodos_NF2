@@ -5,7 +5,7 @@ library(biomaRt)
 library(tidyr)
 synapseLogin()
 
-this.file = 
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/NCATS_drugs/listofDrugTargets.R"
 
 x<-synGet("syn8314523")@filePath
 drugdat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE)
