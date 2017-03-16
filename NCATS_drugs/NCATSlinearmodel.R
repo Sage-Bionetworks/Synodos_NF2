@@ -13,10 +13,8 @@ x<-synGet("syn8398744")@filePath
 target_map<-read.table(x, sep = '\t', header = TRUE, fill = TRUE)
 
 drugdat<-filter(drugdat, Drug %in% target_map$Drug) %>% 
-  full_join(target_map)
+  full_join(target_map) %>% select(AUC, Hugo_Gene) %>% 
 
-test<-sample_frac(drugdat, 0.5)
-  
-lm <- lm(AUC ~ Hugo_Gene, test)
+lm <- lm(drugdat$Hugo_Gene, drugdat$AUC)
 
 View(lm)
