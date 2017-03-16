@@ -1,7 +1,7 @@
 ---
 title: "Meningioma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
-date: "3/8/2017"
+date: "3/15/2017"
 output:
   pdf_document: 
     latex_engine: xelatex
@@ -92,6 +92,8 @@ doseResp_new <- ddply(.data=MGH_normViab, .variables = c('drug', 'cellLine'),
 doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 
 drugs <- c("CUDC907","GSK2126458","Panobinostat")
+drugs2 <- c("AR42","Axitinib","AZD2014","Bortezomib","Everolimus","Ganetespib","GDC0941","GDC0980","Vorinostat")
+
 ###########
 
 myColors <- c("#384DEA", "#C6A40B", "#BF2B2B")
@@ -133,7 +135,7 @@ p1 <- p1 + colScale
 p1
 ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 8, height = 4)
 ```
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
+```{r, eval=FALSE, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
 SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs,]
 
 SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs,]
@@ -163,30 +165,57 @@ SYN_doseResp_r$grp <- paste(SYN_doseResp_r$cellLine,SYN_doseResp_r$replicate)
 ##Response table 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis"}
-SYN_doseResp$IC50_nM <- SYN_doseResp$IC50*1000000000
-SYN_doseResp$maxEfficacy100 <- SYN_doseResp$maxEfficacy*100
+SYN_doseResp$IC50_nM <- signif(SYN_doseResp$IC50*1000000000, 3)
+SYN_doseResp$maxEfficacy100 <- signif(SYN_doseResp$maxEfficacy*100, 3)
 
 foo<-distinct(filter(dplyr::select(SYN_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12")))
-colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response")
+colnames(foo)<-c("Drug", "Cell Line", "IG50 (nM)", "Max Response (%)")
 
 foo$`Cell Line` <- factor(foo$`Cell Line`, levels = c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"))
 
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 2) * Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response`), data = foo))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * Format(digits = 2) * (`IG50 (nM)` +  `Max Response (%)`), data = foo))
+```
+##Supplemental Response table 
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis"}
+
+SYN_normViab2 <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs2,]
+
+SYN_doseResp2 <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs2,]
+SYN_doseResp2 <- SYN_doseResp2[order(SYN_doseResp2$IC50),]
+
+
+SYN_doseResp2$IC50_nM <- round(signif(SYN_doseResp2$IC50*1000000000, 3), 1)
+SYN_doseResp2$maxEfficacy100 <- round(signif(SYN_doseResp2$maxEfficacy*100, 3), 1)
+
+foo<-distinct(filter(dplyr::select(SYN_doseResp2, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% drugs2 & cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12")))
+colnames(foo)<-c("Drug", "Cell Line", "IG50 (nM)", "Max Response (%)")
+
+foo$`Cell Line` <- factor(foo$`Cell Line`, levels = c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"))
+
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("AR42","Axitinib","AZD2014"))))
+```
+##
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("Bortezomib","Everolimus","Ganetespib"))))
+```
+##
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis"}
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("GDC0941", "GDC0980", "Vorinostat"))))
 ```
 
-##All drugs 
+##All other drugs 
 
 ```{r, echo=FALSE, fig.align="center", fig.height=6, fig.width=8, message=FALSE, warning=FALSE}
 
-comp_1_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"),]
-comp_1_drugResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12"),]
+comp_1_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12")  & MGH_normViab$drug %in% drugs2,]
+comp_1_drugResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs2,]
 
 p5 <- ggplot(comp_1_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p5 <- p5 + geom_point(aes(color=Cell.Type), size = 0.1) 
 p5 <- p5 + scale_color_brewer(type = "qual", palette = 2, direction = 1)
 p5 <- p5 + geom_line(data = comp_1_drugResp, aes(x = fittedX+6, y = fittedY*100,  colour = Cell.Type, group = cellLine))
-p5 <- p5 + facet_wrap(~ drug, ncol = 5) + theme_bw(base_size = 14) + theme(legend.position=c(0.5,0.15))
+p5 <- p5 + facet_wrap(~ drug, ncol = 5) + theme_bw(base_size = 14) + theme(legend.position=c(0.9,0.2))
 p5 <- p5 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p5 <- p5 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %') 
 p5 <- p5 + coord_cartesian(ylim = c(0, 125))
