@@ -1,7 +1,7 @@
 ---
 title: "Schwannoma Dose Response Summary"
 author: "Robert Allaway, Abhishek Pratap"
-date: "3/8/2017"
+date: "3/17/2017"
 output:
   pdf_document: 
     latex_engine: xelatex
@@ -122,7 +122,7 @@ doseResp_new <-full_join(doseResp_new, group)
 ###########
 ```
 
-##Averaged dose response curves (human)
+##Dose response curves (human)
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
 HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11", "MS01", "MS02", "MS03", "MS12", "MSC11"),]
@@ -142,13 +142,16 @@ p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
+p1 <- p1 + guides(color=guide_legend(title="NF2 Genotype"))
 p1 <- p1 + colScale
 p1 <- p1 + scale_linetype_manual(values=c("solid", "dotted"))
 p1
 ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 8, height = 4)
 ```
-```{r}
+
+## Dose response curves (mouse)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
 p1 <- ggplot(HS_normViab %>% filter(Species == "Mouse" & drug %in% drugs), aes(x = log10(conc*(1e+6)), y = normViability*100)) 
 p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
 p1 <- p1 + geom_line(data = HS_doseResp %>% filter(Species == "Mouse" & drug %in% drugs), aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
@@ -156,43 +159,14 @@ p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
+p1 <- p1 + guides(color=guide_legend(title="NF2 Genotype"))
 p1 <- p1 + colScale
 p1 <- p1 + scale_linetype_manual(values=c("solid", "dotted"))
 p1
 ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 8, height = 4)
 ```
 
-
-
 ```{r, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
-HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11", "MS01", "MS02", "MS03", "MS12", "MSC11") & UCF_normViab$drug %in% drugs,]
-
-HS_doseResp <- doseResp[doseResp$cellLine %in% c("HS01","HS11", "MS01", "MS02", "MS03", "MS12", "MSC11") & doseResp$drug %in% drugs,]
-HS_doseResp <- HS_doseResp[order(HS_doseResp$IC50),]
-
-HS_normViab <- filter(HS_normViab, experiment == "Run1")
-HS_doseResp <- filter(HS_doseResp, experiment == "Run1")
-
-labelVal <- as.integer(c(min(log10(HS_normViab$conc*(1e+6))), median(log10(HS_normViab$conc*(1e+6))), max(log10(HS_normViab$conc*(1e+6)))))
-
-p1 <- ggplot(HS_normViab, aes(x = log10(conc*(1e+6)), y = 100-normViability*100)) 
-p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
-p1 <- p1 + geom_line(data = HS_doseResp, aes(x = fittedX+6, y = 100-fittedY*100, colour = Cell.Type, group = cellLine))
-p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
-p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('% response')
-p1 <- p1 + coord_cartesian(ylim = c(-25, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
-p1 <- p1 + colScale
-p1
-ggsave(filename = "Schwannoma_drug_response_inhbition_2Dplot.pdf",width = 8, height = 4)
-```
-
-```{r, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
-##All response curves (human)
-####Blue tinted curves are NF1 WT. Red tinted curves are NF1 mutant. 
-
 HS_doseResp_r <- doseResp_r[doseResp_r$cellLine %in% c("HS01","HS11") & doseResp_r$drug %in% drugs,]
 HS_doseResp_r <- HS_doseResp_r[order(HS_doseResp_r$IC50),]
 HS_doseResp_r$grp <- paste(HS_doseResp_r$cellLine,HS_doseResp_r$replicate)
@@ -202,79 +176,90 @@ HS_doseResp_r$grp <- paste(HS_doseResp_r$cellLine,HS_doseResp_r$replicate)
 ```{r, fig.align="center", fig.height=5, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}
 
 MS_normViab <- UCF_normViab[grep('^MS', UCF_normViab$cellLine),]
-#MS_normViab <- MS_normViab[MS_normViab$drug %in% drugs,]
 
 MS_doseResp <- doseResp[grep('^MS', doseResp$cellLine),]
-#MS_doseResp <- MS_doseResp[MS_doseResp$drug %in% drugs,]
 MS_doseResp <- MS_doseResp[order(MS_doseResp$IC50),]
 
 MS_doseResp_r <- doseResp_r[grep('^MS', doseResp_r$cellLine),]
-#MS_doseResp_r <- MS_doseResp_r[MS_doseResp_r$drug %in% drugs,]
 MS_doseResp_r <- MS_doseResp_r[order(MS_doseResp_r$IC50),]
 MS_doseResp_r$grp <- paste(MS_doseResp_r$cellLine,MS_doseResp_r$replicate)
 
 ```
 
-##Full response table (values for MS01, MS02, MSC11 are averaged)
+##Primary response table (values for MS01, MS02, MSC11 are averaged, max response based on 10 micromolar max [drug])
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-HS_doseResp$IC50_nM<-HS_doseResp$IC50*1000000000
-HS_doseResp$maxEfficacy100 <- HS_doseResp$maxEfficacy*100
+HS_doseResp$IC50_nM<-round(signif(HS_doseResp$IC50*1000000000, 3),1)
+HS_doseResp$maxEfficacy100 <- round(signif(HS_doseResp$maxEfficacy*100, 3),1)
 
 foo<-distinct(filter(dplyr::select(HS_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("HS01", "HS11")))
-colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (%)")
+colnames(foo)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (\\%)")
 
-MS_doseResp$IC50_nM<-MS_doseResp$IC50*1000000000
-MS_doseResp$maxEfficacy100 <- MS_doseResp$maxEfficacy*100
+MS_doseResp$IC50_nM<-round(signif(MS_doseResp$IC50*1000000000, 3),1)
+MS_doseResp$maxEfficacy100 <- round(signif(MS_doseResp$maxEfficacy*100, 3),1)
 
-foo2<-distinct(filter(dplyr::select(MS_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") & cellLine %in% c("MS01",  "MS02",  "MS03", "MS12",  "MSC11")))
-colnames(foo2)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (%)")
+foo2<-distinct(filter(dplyr::select(MS_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% c("CUDC907", "GSK2126458", "Panobinostat") &         cellLine %in% c("MS01",  "MS02",  "MS03", "MS12",  "MSC11")))
+colnames(foo2)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (\\%)")
 
 foo<-bind_rows(foo, foo2)
 
 foo$`Cell Line`[foo$`Cell Line`=="MSC11"] <- c("MS11")
 foo$`Cell Line` <- factor(foo$`Cell Line`, levels = c("HS01", "HS11", "MS01",  "MS02",  "MS03","MS11", "MS12"))
 
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 2) * Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo))
+names<-colnames(foo)
+foo<-with(foo,aggregate(cbind(`IC50 (nM)`,`Max Response (\\%)`),list(Drug, `Cell Line`),FUN=mean))
+colnames(foo)<-names
+foo$`IC50 (nM)` <- replace(foo$`IC50 (nM)`, foo$`IC50 (nM)`>5000, ">5000")
+
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` + `Max Response (\\%)`), data = foo))
 
 ```
+######
+#Supplementa Data
+##Supplemental Response Table (values for MS01, MS02, MSC11 are averaged, max response based on 10 micromolar max [drug])
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
 foo3<-distinct(filter(dplyr::select(HS_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% drugs2 & cellLine %in% c("HS01", "HS11")))
-colnames(foo3)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (%)")
+colnames(foo3)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (\\%)")
 
 foo4<-distinct(filter(dplyr::select(MS_doseResp, drug, cellLine, IC50_nM, maxEfficacy100), drug %in% drugs2 & cellLine %in% c("MS01",  "MS02",  "MS03", "MS12",  "MSC11")))
-colnames(foo4)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (%)")
+colnames(foo4)<-c("Drug", "Cell Line", "IC50 (nM)", "Max Response (\\%)")
 
-foo<-signif(round(bind_rows(foo3, foo4), 1), 3)
+foo<-bind_rows(foo3, foo4)
 
 foo$`Cell Line`[foo$`Cell Line`=="MSC11"] <- c("MS11")
 foo$`Cell Line` <- factor(foo$`Cell Line`, levels = c("HS01", "HS11", "MS01",  "MS02",  "MS03","MS11", "MS12"))
 
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("AR42", "Axitinib", "AZD2014"))))
+names<-colnames(foo)
+foo<-with(foo,aggregate(cbind(`IC50 (nM)`,`Max Response (\\%)`),list(Drug, `Cell Line`),FUN=mean))
+colnames(foo)<-names
+foo$`IC50 (nM)` <- replace(foo$`IC50 (nM)`, foo$`IC50 (nM)`>5000, ">5000")
+foo$`IC50 (nM)` <- replace(foo$`IC50 (nM)`, is.na(foo$`IC50 (nM)`), "NA")
+
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("AR42", "Axitinib", "AZD2014"))))
 
 ```
-##
+######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("Bortezomib", "Everolimus", "Ganetespib"))))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("Bortezomib", "Everolimus", "Ganetespib"))))
 ```
-##
+######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("GDC0941", "GDC0980", "Lapatinib"))))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("GDC0941", "GDC0980", "Lapatinib"))))
 ```
-##
+######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("LY2157299", "OSU0312", "Perifosine"))))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("LY2157299", "OSU03012", "Perifosine"))))
 ```
-##
+######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~  Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("Selumetinib","Trametinib", "Vismodegib"))))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) *  Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("Selumetinib","Trametinib", "Vismodegib"))))
 ```
-##
+######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * mean * (`IC50 (nM)` +  `Max Response (%)`), data = foo %>% filter(Drug %in% c("Vorinostat"))))
+latex(tabular((`Cell Line` = factor(`Cell Line`)) ~Format(digits = 3) *  Heading() * (factor(Drug)) * Heading() * identity * (`IC50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("Vorinostat"))))
 ```
+
 ## All drugs (human)
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=12}
 
 # set 1: HS01, HS11
@@ -298,7 +283,6 @@ ggsave(filename = "compare1_drug_response_2Dplot.pdf",width = 8, height = 12)
 ```
 
 ##All drugs (mouse)
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=12}
 
 # set 2: MS01, MS02, MS03
@@ -321,50 +305,4 @@ p6
 
 ggsave(filename = "compare2_drug_response_2Dplot.pdf",width = 8, height = 12)
 
-```
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
-HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11") & UCF_normViab$drug %in% drugs,]
-
-HS_doseResp <- doseResp[doseResp$cellLine %in% c("HS01", "HS11") & doseResp$drug %in% drugs,]
-HS_doseResp <- HS_doseResp[order(HS_doseResp$IC50),]
-
-HS_normViab <- filter(HS_normViab, experiment == "Run1")
-HS_doseResp <- filter(HS_doseResp, experiment == "Run1")
-
-labelVal <- as.integer(c(min(log10(HS_normViab$conc*(1e+6))), median(log10(HS_normViab$conc*(1e+6))), max(log10(HS_normViab$conc*(1e+6)))))
-
-p1 <- ggplot(HS_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
-p1 <- p1 + geom_line(data = HS_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
-p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
-p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
-p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
-p1 <- p1 + colScale
-p1
-ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 8, height = 4)
-```
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=8, fig.height=4}
-HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("MS01", "MS02", "MS03", "MS12", "MSC11") & UCF_normViab$drug %in% drugs,]
-
-HS_doseResp <- doseResp[doseResp$cellLine %in% c( "MS01", "MS02", "MS03", "MS12", "MSC11") & doseResp$drug %in% drugs,]
-HS_doseResp <- HS_doseResp[order(HS_doseResp$IC50),]
-
-HS_normViab <- filter(HS_normViab, experiment == "Run1")
-HS_doseResp <- filter(HS_doseResp, experiment == "Run1")
-
-labelVal <- as.integer(c(min(log10(HS_normViab$conc*(1e+6))), median(log10(HS_normViab$conc*(1e+6))), max(log10(HS_normViab$conc*(1e+6)))))
-
-p1 <- ggplot(HS_normViab, aes(x = log10(conc*(1e+6)), y = normViability*100)) 
-p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1) 
-p1 <- p1 + geom_line(data = HS_doseResp, aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
-p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
-p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
-p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
-p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
-p1 <- p1 + colScale
-p1
-ggsave(filename = "Schwannoma_drug_response_2Dplot_Mouse.pdf",width = 8, height = 4)
 ```
