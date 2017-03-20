@@ -18,3 +18,11 @@
 *.nb.html
 
 *.tex
+
+*.rdb
+
+*.rdx
+
+*.Rhistory
+
+*__packages
