@@ -122,6 +122,18 @@ ggplot(sub4, aes(x= Syn6, y=Syn1)) +
 
 ggsave("Syn6_Syn1_AUC_Selectivity.png", height = 6, width = 6)
 
+ggplot(sub4, aes(x= HS01, y=HS12)) +
+  geom_point(stat = "identity", aes(color=(HS12/HS01))) + 
+  scale_color_viridis(option = "A") +
+  
+
+ggsave("HS01_HS12_AUC_Selectivity_nolab.png", height = 6, width = 6)
+
+ggplot(sub4, aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=(Syn1/Syn6))) + 
+  scale_color_viridis(option = "A")
+ 
+ggsave("Syn6_Syn1_AUC_Selectivity_nolab.png", height = 6, width = 6)
 ```
 
 ##Maximum response colored by average potency. Yellow points are more potent drugs (average of measurements for both cell lines plotted). Labeled drugs have a an average maximum response of 99% or greater for the plotted cell lines. 
