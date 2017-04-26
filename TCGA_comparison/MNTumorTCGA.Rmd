@@ -1,0 +1,24 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(synapseClient)
+library(ggplot2)
+synapseLogin()
+
+exp <- read.table(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
+exp$gene_id <- rownames(exp)
+
+rsem <- c("MIN31981" = "syn5269690", "MN408a" = "syn5269698", "MN408b" = "syn5269706",
+          "MN408c" = "syn5269714", "MN460_MN556" = "syn5269722", "MN466" = "syn5269731",
+          "MN479" = "syn5269739", "MN491.1" = "syn5567261", "MN491.2" = "syn5567265",
+          "MN491" = "syn5269747", "MN492" = "syn5269755", "MN505" = "syn5269762")
+
+```

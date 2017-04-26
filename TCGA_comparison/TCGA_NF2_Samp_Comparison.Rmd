@@ -4,15 +4,13 @@ output:
   html_document: default
 ---
 ```{r, include=FALSE}
-source("cBioPortalData.R")
 library(data.table)
 library(plyr)
 library(dplyr)
 library(reshape2)
 library(synapseClient)
 library(ggplot2)
-
-this.file = "x"
+synapseLogin()
 
 mutation.files<-list.files("mutations_by_cancer/")
 mutations<-lapply(mutation.files, function(x) read.table(file = paste("mutations_by_cancer/",x, sep=""), header = TRUE))
@@ -36,12 +34,13 @@ names(nf2.stat) <- cancers
 nf2.stat.df <- ldply(nf2.stat, .id = "cancer")
 nf2.stat.df <- filter(nf2.stat.df, !is.na(mutation))
 
-exp <- getDisExpressionData(study = "tcga")
+##pull prepared TCGA expression matrix from synapse 
+exp <- read.table(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
 exp <- select(exp, one_of(nf2.stat.df$samples))
 nf2.stat.df <- filter(nf2.stat.df, samples %in% colnames(exp))
 exp$gene_id <- rownames(exp)
 
-##get expression data
+##get expression data from NF2 synodos project
 HS01.1 <- read.table(synGet("syn5567197")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
 colnames(HS01.1) <- c("gene_id", "HS01.1")
 HS01.1 <- inner_join(HS01.1, exp)
@@ -67,7 +66,7 @@ HS01.2 <- inner_join(HS01.2, exp)
 HS01.2.names <- colnames(HS01.2)[-1]
 
 temp<-as.data.frame(sapply(HS01.2.names, function(i){
-  t<-cor(HS01.2$HS01.2, HS01.2[i])
+  t<-cor(HS01.2$HS01.2, HS01.2[i], method = "spearman")
 }))
 
 colnames(temp) <- "HS01.2"

@@ -1,0 +1,41 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(synapseClient)
+library(ggplot2)
+synapseLogin()
+
+exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
+exp$gene_id <- rownames(exp)
+
+rsem <- c("Syn5" = "syn5269658", "Syn6" = "syn5269682", "HS01.1" = "syn5567197", 
+          "HS01.2" = "syn5567201", "HS11.1" = "syn5567229", "HS11.2" = "syn5567233")
+
+i <- "syn5567233"
+```
+
+
+```{r}
+synodos<-lapply(rsem, function(i){
+  x <- synGet(i)
+  y <- read.table(x@filePath, header = TRUE)
+  z <- y %>% select(gene_id, TPM)
+  colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
+  return(z)
+  })
+
+synodos.all <- synodos %>% Reduce(function(dtf1,dtf2) full_join(dtf1,dtf2,by="gene_id"), .)
+all <- inner_join(synodos.all, exp)
+```
+
+```{r}
+
+```
