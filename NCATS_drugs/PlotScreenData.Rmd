@@ -124,15 +124,22 @@ ggsave("Syn6_Syn1_AUC_Selectivity.png", height = 6, width = 6)
 
 ggplot(sub4, aes(x= HS01, y=HS12)) +
   geom_point(stat = "identity", aes(color=(HS12/HS01))) + 
-  scale_color_viridis(option = "A") +
-  
+  scale_color_viridis(name = "Selectivity", option = "C") +
+  labs(title="Schwannoma", x="NF2 deficient", y="NF2 normal") +
+  coord_fixed() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(xlim = c(0, 650), ylim = c(0, 650))
 
 ggsave("HS01_HS12_AUC_Selectivity_nolab.png", height = 6, width = 6)
 
 ggplot(sub4, aes(x= Syn6, y=Syn1)) +
   geom_point(stat = "identity", aes(color=(Syn1/Syn6))) + 
-  scale_color_viridis(option = "A")
- 
+  scale_color_viridis(name = "Selectivity", option = "C") +
+  labs(title="Meningioma", x="NF2 deficient", y="NF2 normal") +
+  coord_fixed() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(xlim = c(0, 650), ylim = c(0, 650))
+     
 ggsave("Syn6_Syn1_AUC_Selectivity_nolab.png", height = 6, width = 6)
 ```
 
@@ -226,3 +233,228 @@ intersect(intersect(filter(sub4, Syn1/Syn5>1.25)$Compound.Name, filter(sub4, Syn
 
 ```
 
+```{r}
+x<-synGet("syn8533491")@filePath
+preddat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE) %>% filter(Supplier == "MIPE") %>%  dplyr::select(Hypergeo_pval, Supplier_ID)
+
+colnames(preddat) <- c("pval", "Sample.ID")
+preddat <- full_join(drugdat, preddat)
+```
+
+```{r}
+sub3 <- dplyr::select(preddat, Cell.Line, Log.AC50.uM, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Log.AC50.uM)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AC50")
+  #geom_text(data=subset(sub4, Syn1/Syn5>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_AC50_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, AUC.Fit, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, AUC.Fit)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AUC")
+  #geom_text(data=subset(sub4, Syn1/Syn5>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_AUC_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, Max.Resp, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Max.Resp)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn5, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("Max Response")
+  #geom_text(data=subset(sub4, Syn1/Syn5>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn5_Syn1_MaxResp_Selectivity.png", height = 6, width = 6)
+```
+
+```{r}
+x<-synGet("syn8533698")@filePath
+preddat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE) %>% filter(Supplier == "MIPE") %>%  dplyr::select(Hypergeo_pval, Supplier_ID)
+
+colnames(preddat) <- c("pval", "Sample.ID")
+preddat <- full_join(drugdat, preddat)
+```
+
+```{r}
+sub3 <- dplyr::select(preddat, Cell.Line, Log.AC50.uM, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Log.AC50.uM)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AC50")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AC50_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, AUC.Fit, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, AUC.Fit)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AUC")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AUC_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, Max.Resp, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Max.Resp)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("Max Response")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_MaxResp_Selectivity.png", height = 6, width = 6)
+```
+
+
+```{r}
+x<-synGet("syn8533696")@filePath
+preddat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE) %>% filter(Supplier == "MIPE") %>%  dplyr::select(Hypergeo_pval, Supplier_ID)
+
+colnames(preddat) <- c("pval", "Sample.ID")
+preddat <- full_join(drugdat, preddat)
+```
+
+```{r}
+sub3 <- dplyr::select(preddat, Cell.Line, Log.AC50.uM, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Log.AC50.uM)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AC50")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AC50_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, AUC.Fit, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, AUC.Fit)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("AUC")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_AUC_Selectivity.png", height = 6, width = 6)
+
+
+sub3 <- dplyr::select(preddat, Cell.Line, Max.Resp, Compound.Name, pval)
+sub4 <- sub3 %>% 
+  group_by(Compound.Name) %>% 
+  nest() %>% 
+  mutate(num_cells = map(data, nrow)) %>% 
+  filter(num_cells == 6) %>% 
+  mutate(data = map(data, function(x) {
+    spread(x, Cell.Line, Max.Resp)
+  })) %>% 
+  unnest(data)
+
+ggplot(sub4 %>% filter(!is.na(pval)), aes(x= Syn6, y=Syn1)) +
+  geom_point(stat = "identity", aes(color=pval<0.05)) + 
+  coord_fixed() +
+  scale_color_manual(name = "mHG<0.05", values = setNames(c("red3", "green2"), c(F,T))) +
+  geom_abline(slope=1, intercept=0) +
+  ggtitle("Max Response")
+  #geom_text(data=subset(sub4, Syn1/Syn6>=1.5), aes(label = Compound.Name), size = 2)
+
+ggsave("Syn6_Syn1_MaxResp_Selectivity.png", height = 6, width = 6)
+```

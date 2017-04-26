@@ -1,0 +1,218 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, include=FALSE}
+library(synapseClient)
+library(dplyr)
+library(openxlsx)
+library(tidyr)
+library(ggplot2)
+synapseLogin()
+
+theme_update(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r, include=FALSE}
+mgh<-read.table(synGet("syn6166525")@filePath, sep = "\t", header = TRUE, comment.char = "")
+mgh <- separate(mgh,geneName, into=c("gene"), sep ="\\|")
+m.dmso <- filter(mgh, diffExptest == "HS01.DMSO-HS11.DMSO")
+m.cudc <- filter(mgh, diffExptest == "HS01.CUDC907-HS11.CUDC907")
+m.gsk <- filter(mgh, diffExptest == "HS01.GSK2126458-HS11.GSK2126458")
+m.pano <- filter(mgh, diffExptest == "HS01.Panobinostat-HS11.Panobinostat")
+
+g.hs01.dmso<-read.xlsx(synGet("syn5033489")@filePath, 1) 
+g.hs01.cudc<-read.xlsx(synGet("syn5033361")@filePath, 1)
+g.hs01.gsk<-read.xlsx(synGet("syn5033612")@filePath, 1)
+g.hs01.pano<-read.xlsx(synGet("syn5033717")@filePath, 1)
+g.hs11.dmso<-read.xlsx(synGet("syn5034722")@filePath, 1)
+g.hs11.cudc<-read.xlsx(synGet("syn5033847")@filePath, 1)
+g.hs11.gsk<-read.xlsx(synGet("syn5034724")@filePath, 1)
+g.hs11.pano<-read.xlsx(synGet("syn5034726")@filePath, 1)
+
+g.hs01.dmso<-g.hs01.dmso %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs01.cudc<-g.hs01.cudc %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs01.gsk<-g.hs01.gsk %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs01.pano<-g.hs01.pano %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs11.dmso<-g.hs11.dmso %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs11.cudc<-g.hs11.cudc %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs11.gsk<-g.hs11.gsk %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+g.hs11.pano<-g.hs11.pano %>% tidyr::separate(gene_id, into=c("gene"), sep ="\\|") %>% filter(gene != "?" & gene != "SLC35E2")
+
+g.dmso <- as.data.frame(log(g.hs01.dmso$TPM/g.hs11.dmso$TPM))
+colnames(g.dmso)<- "logFC.unc"
+g.dmso$gene <- g.hs01.dmso$gene
+
+g.gsk <- as.data.frame(log(g.hs01.gsk$TPM/g.hs11.gsk$TPM))
+colnames(g.gsk)<- "logFC.unc"
+g.gsk$gene <- g.hs01.gsk$gene
+
+g.cudc <- as.data.frame(log(g.hs01.cudc$TPM/g.hs11.cudc$TPM))
+colnames(g.cudc)<- "logFC.unc"
+g.cudc$gene <- g.hs01.cudc$gene
+
+g.pano <- as.data.frame(log(g.hs01.pano$TPM/g.hs11.pano$TPM))
+colnames(g.pano)<- "logFC.unc"
+g.pano$gene <- g.hs01.pano$gene
+
+g.dmso <- filter(g.dmso, logFC.unc != "NaN" & logFC.unc != Inf &  logFC.unc != -Inf)
+g.gsk <- filter(g.gsk, logFC.unc != "NaN" & logFC.unc != Inf &  logFC.unc != -Inf)
+g.cudc <- filter(g.cudc, logFC.unc != "NaN" & logFC.unc != Inf &  logFC.unc != -Inf)
+g.pano <- filter(g.pano, logFC.unc != "NaN" & logFC.unc != Inf &  logFC.unc != -Inf)
+
+dmso <- full_join(g.dmso, select(m.dmso, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = dmso))
+summary(lm(logFC.unc ~ logFC, data = dmso))
+cor(select(inner_join(g.dmso, m.dmso), logFC.unc, logFC), method = "spearman")
+
+cudc <- full_join(g.cudc, select(m.cudc, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = cudc))
+summary(lm(logFC.unc ~ logFC, data = cudc))
+cor(select(inner_join(g.cudc, m.cudc), logFC.unc, logFC), method = "spearman")
+
+gsk <- full_join(g.gsk, select(m.gsk, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = gsk))
+summary(lm(logFC.unc ~ logFC, data = gsk))
+cor(select(inner_join(g.gsk, m.gsk), logFC.unc, logFC), method = "spearman")
+
+pano <- full_join(g.pano, select(m.pano, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = pano))
+summary(lm(logFC.unc ~ logFC, data = pano))
+cor(select(inner_join(g.pano, m.pano), logFC.unc, logFC), method = "spearman")
+
+
+```
+
+### MGH and UNC correlation - DMSO
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(dmso, aes(x=logFC, y=logFC.unc)) +
+  geom_point() + 
+  geom_abline(intercept = 0.1057, slope = 0.1548) +
+  labs(title = "DMSO, R^2 = 0.0829, spearman correlation = 0.226", x = "logFC(MGH)", y = "logFC(UNC)")
+```
+
+### DMSO Counts Density - HS01, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs01.dmso, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.dmso, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5) + 
+  labs(title = "HS01 DMSO", x = "log(CPM)", y = "density")
+```
+
+### DMSO Counts Density - HS11, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs11.pano, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5) + 
+  labs(title = "HS11 DMSO", x = "log(CPM)", y = "density")
+```
+
+### MGH and UNC correlation - CUDC
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(cudc, aes(x=logFC, y=logFC.unc)) +
+  geom_point() + 
+  geom_abline(intercept = 0.0479, slope = 0.0201) +
+  labs(title = "CUDC, R^2 = 0.0013, spearman correlation = 0.066", x = "logFC(MGH)", y = "logFC(UNC)")
+```
+
+### CUDC Counts Density - HS01, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs01.cudc, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.cudc, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5)  + 
+  labs(title = "HS01 CUDC", x = "log(CPM)", y = "density")
+```
+
+### CUDC Counts Density - HS11, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs11.cudc, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5) + 
+  labs(title = "HS11 CUDC", x = "log(CPM)", y = "density")
+```
+
+### MGH and UNC correlation - GSK
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(gsk, aes(x=logFC, y=logFC.unc)) +
+  geom_point() + 
+  geom_abline(intercept = -0.0405, slope = 0.1510) +
+  labs(title = "GSK, R^2 = 0.0536, spearman correlation = 0.203", x = "logFC(MGH)", y = "logFC(UNC)")
+```
+
+### GSK Counts Density - HS01, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs01.gsk, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.gsk, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5)  + 
+  labs(title = "HS01 GSK", x = "log(CPM)", y = "density")
+```
+
+### GSK Counts Density - HS11, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs11.gsk, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5)  + 
+  labs(title = "HS11 GSK", x = "log(CPM)", y = "density")
+```
+
+### MGH and UNC correlation - Pano
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(pano, aes(x=logFC, y=logFC.unc)) +
+  geom_point() + 
+  geom_abline(intercept = -0.0556, slope = -0.0201) +
+  labs(title = "PANO, R^2 = 0.0011, spearman correlation = 0.035", x = "logFC(MGH)", y = "logFC(UNC)")
+```
+
+### Pano Counts Density - HS01, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs01.pano, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5)  + 
+  labs(title = "HS01 Pano", x = "log(CPM)", y = "density")
+```
+
+### Pano Counts Density - HS11, red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.hs11.pano, aes(x = log(TPM))) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logCPM), kernel = "gaussian", fill = "red", alpha = 0.5)  + 
+  labs(title = "HS11 Pano", x = "log(CPM)", y = "density")
+```
+
+###Log FC Density, MGH vs UNC (DMSO), red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.dmso, aes(x = logFC.unc)) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.dmso, aes(x = logFC, kernel = "gaussian", fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (DMSO)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+
+###Log FC Density, MGH vs UNC (CUDC), red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.cudc, aes(x = logFC.unc)) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.cudc, aes(x = logFC, kernel = "gaussian", fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (CUDC)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+###Log FC Density, MGH vs UNC (GSK), red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.gsk, aes(x = logFC.unc)) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.gsk, aes(x = logFC, kernel = "gaussian", fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (GSK)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+
+###Log FC Density, MGH vs UNC (PANO), red=UNC blue=MGH
+```{r, echo=FALSE, warnings=FALSE}
+ggplot(g.pano, aes(x = logFC.unc)) +
+  geom_density(kernel = "gaussian", fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logFC, kernel = "gaussian", fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (PANO)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```

@@ -70,7 +70,7 @@ colnames(dat2) <- c("Drug", "Gene.Name", "Max.Resp", "bh", "Cell.Line")
 
 dat3 <- rbind(dat1,dat2)
 
-ggplot(dat3 %>% filter(Gene.Name=="TP53"), aes(x=Cell.Line, y=Max.Resp)) +
+ggplot(dat3 %>% filter(Gene.Name=="KAT2A"), aes(x=Cell.Line, y=Max.Resp)) +
   ggbeeswarm::geom_beeswarm()
 
   
