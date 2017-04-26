@@ -7,7 +7,7 @@ library(mHG)
 library(parallel)
 synapseLogin()
 
-this.file = "x"
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/NCATS_drugs/DrugPrediction.R"
 
 degenes<-read.table(synGet("syn6038243")@filePath, sep = "\t", header = TRUE, comment.char = "")
 degenes<-degenes %>% filter(diffExptest=="Syn5.DMSO-Syn1.DMSO" & adj.P.Val<=0.1 & logFC>=0.1) %>% select(geneName, logFC)
@@ -86,7 +86,26 @@ hyper<-TestForDrugTargets(testgenes)
 write.table(hyper, "Syn5_Syn1_DEGene_enriched_drugs.txt", sep = "\t")
 synStore(File("Syn5_Syn1_DEGene_enriched_drugs.txt", parentId = "syn8533488"), used = c("syn7341038", "syn8118065", "syn6038243"), executed = this.file)
 
-### schwannoma analysis, not done because only 2 significantly degenes?
+### post treatment with pano to see if different
 degenes<-read.table(synGet("syn6038243")@filePath, sep = "\t", header = TRUE, comment.char = "")
-degenes<-degenes %>% filter(diffExptest=="HS01.DMSO-HS11.DMSO" & adj.P.Val<=0.1 & logFC>=0.1) %>% select(geneName, logFC)
+degenes<-degenes %>% filter(diffExptest=="Syn5.Panobinostat-Syn1.Panobinostat" & adj.P.Val<=0.1 & logFC>=0.1) %>% select(geneName, logFC)
 degenes<-arrange(degenes, desc(logFC))
+
+testgenes<-unique(degenes$geneName)
+hyper<-TestForDrugTargets(testgenes)
+
+write.table(hyper, "Syn5_Syn1_pano_DEGene_enriched_drugs.txt", sep = "\t")
+synStore(File("Syn5_Syn1_pano_DEGene_enriched_drugs.txt", parentId = "syn8533488"), used = c("syn7341038", "syn8118065", "syn6038243"), executed = this.file)
+
+##syn6-syn1
+degenes<-read.table(synGet("syn6038243")@filePath, sep = "\t", header = TRUE, comment.char = "")
+degenes<-degenes %>% filter(diffExptest=="Syn6.DMSO-Syn1.DMSO" & adj.P.Val<=0.1 & logFC>=0.1) %>% select(geneName, logFC)
+degenes<-arrange(degenes, desc(logFC))
+
+testgenes<-unique(degenes$geneName)
+hyper<-TestForDrugTargets(testgenes)
+
+write.table(hyper, "Syn6_Syn1_DEGene_enriched_drugs.txt", sep = "\t")
+synStore(File("Syn6_Syn1_DEGene_enriched_drugs.txt", parentId = "syn8533488"), used = c("syn7341038", "syn8118065", "syn6038243"), executed = this.file)
+
+
