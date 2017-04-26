@@ -1,0 +1,245 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, include=FALSE}
+source("cBioPortalData.R")
+library(data.table)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(synapseClient)
+library(ggplot2)
+
+this.file = "x"
+
+mutation.files<-list.files("mutations_by_cancer/")
+mutations<-lapply(mutation.files, function(x) read.table(file = paste("mutations_by_cancer/",x, sep=""), header = TRUE))
+
+cancers<-sub("mutations.txt", "", mutation.files)
+names(mutations) <- cancers
+
+nf2.stat<-lapply(1:35, function(i){
+  ##get samples with nf2 mutation
+  nf2<-filter(mutations[[i]], gene=="NF2")
+  nf2<-nf2[,-1]
+  nf2<-as.data.frame(t(nf2))
+  nf2$samples<-rownames(nf2)
+  try(colnames(nf2) <- c("mutation", "samples"))
+  cancer.type<-sub("mutations.txt", "", mutation.files[[i]])
+  print(cancer.type)
+  return(nf2)
+})
+
+names(nf2.stat) <- cancers
+nf2.stat.df <- ldply(nf2.stat, .id = "cancer")
+nf2.stat.df <- filter(nf2.stat.df, !is.na(mutation))
+
+exp <- getDisExpressionData(study = "tcga")
+exp <- select(exp, one_of(nf2.stat.df$samples))
+nf2.stat.df <- filter(nf2.stat.df, samples %in% colnames(exp))
+exp$gene_id <- rownames(exp)
+
+##get expression data
+HS01.1 <- read.table(synGet("syn5567197")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(HS01.1) <- c("gene_id", "HS01.1")
+HS01.1 <- inner_join(HS01.1, exp)
+
+HS01.1.names <- colnames(HS01.1)[-1]
+
+x<-as.data.frame(sapply(HS01.1.names, function(i){
+  x<-cor(HS01.1$HS01.1, HS01.1[i])
+}))
+
+colnames(x) <- "HS01.1"
+x$samples <- rownames(x)
+
+x<-inner_join(x, nf2.stat.df)
+x$mutation <- sub(1, "mut", x$mutation)
+x$mutation <- sub(0, "wt", x$mutation)
+
+#####HS01.2
+HS01.2 <- read.table(synGet("syn5567201")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(HS01.2) <- c("gene_id", "HS01.2")
+HS01.2 <- inner_join(HS01.2, exp)
+
+HS01.2.names <- colnames(HS01.2)[-1]
+
+temp<-as.data.frame(sapply(HS01.2.names, function(i){
+  t<-cor(HS01.2$HS01.2, HS01.2[i])
+}))
+
+colnames(temp) <- "HS01.2"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+#####Syn5
+Syn5.1 <- read.table(synGet("syn5269658")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(Syn5.1) <- c("gene_id", "Syn5.1")
+Syn5.1 <- inner_join(Syn5.1, exp)
+
+Syn5.1.names <- colnames(Syn5.1)[-1]
+
+temp<-as.data.frame(sapply(Syn5.1.names, function(i){
+  t<-cor(Syn5.1$Syn5.1, Syn5.1[i])
+}))
+
+colnames(temp) <- "Syn5.1"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+#####Syn6
+Syn6 <- read.table(synGet("syn5269682")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(Syn6) <- c("gene_id", "Syn6")
+Syn6 <- inner_join(Syn6, exp)
+
+Syn6.names <- colnames(Syn6)[-1]
+
+temp<-as.data.frame(sapply(Syn6.names, function(i){
+  t<-cor(Syn6$Syn6, Syn6[i])
+}))
+
+colnames(temp) <- "Syn6"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+
+##MN31981
+MN31981 <- read.table(synGet("syn5269690")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(MN31981) <- c("gene_id", "MN31981")
+MN31981 <- inner_join(MN31981, exp)
+
+MN31981.names <- colnames(MN31981)[-1]
+
+temp<-as.data.frame(sapply(MN31981.names, function(i){
+  t<-cor(MN31981$MN31981, MN31981[i])
+}))
+
+colnames(temp) <- "MN31981"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+##MN408a
+MN408a <- read.table(synGet("syn5269698")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(MN408a) <- c("gene_id", "MN408a")
+MN408a <- inner_join(MN408a, exp)
+
+MN408a.names <- colnames(MN408a)[-1]
+
+temp<-as.data.frame(sapply(MN408a.names, function(i){
+  t<-cor(MN408a$MN408a, MN408a[i])
+}))
+
+colnames(temp) <- "MN408a"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+##MN408b
+MN408b <- read.table(synGet("syn5269706")@filePath, header = TRUE, sep = "\t") %>% select(gene_id, TPM)
+colnames(MN408b) <- c("gene_id", "MN408b")
+MN408b <- inner_join(MN408b, exp)
+
+MN408b.names <- colnames(MN408b)[-1]
+
+temp<-as.data.frame(sapply(MN408b.names, function(i){
+  t<-cor(MN408b$MN408b, MN408b[i])
+}))
+
+colnames(temp) <- "MN408b"
+temp$samples <- rownames(temp)
+x<-inner_join(x, temp)
+
+```
+##correlation by genotype
+```{r, echo=FALSE}
+ggplot(x, aes(mutation, HS01.1, fill = mutation)) +
+  geom_boxplot() +
+  labs(title = "HS01.1", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, HS01.2, fill = mutation)) +
+  geom_boxplot() +
+  labs(title = "HS01.2", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, Syn5.1, fill = mutation)) +
+  geom_boxplot() +
+  labs(title = "Syn5", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, Syn6, fill = mutation)) +
+  geom_boxplot() + 
+  labs(title = "Syn6", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, MN31981, fill = mutation)) +
+  geom_boxplot() + 
+  labs(title = "MN31981", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, MN408a, fill = mutation)) +
+  geom_boxplot() + 
+  labs(title = "MN408a", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(x, aes(mutation, MN408b, fill = mutation)) +
+    geom_boxplot() + 
+  labs(title = "MN408b", x = "NF2 status", y = "correlation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+##correlation by cancer
+```{r, echo=FALSE}
+ggplot(x, aes(cancer, HS01.1, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "HS01.1", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, HS01.2, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "HS01.2", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, Syn5.1, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "Syn5", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, Syn6, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "Syn6", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, MN31981, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "MN31981", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, MN408a, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "MN408a", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+ggplot(x, aes(cancer, MN408b, fill = cancer)) +
+  geom_boxplot() +
+  labs(title = "MN408b", x = "cancer", y = "correlation") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+```
+
