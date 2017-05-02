@@ -13,7 +13,7 @@ library(ggplot2)
 library(tibble)
 library(parallel)
 
-synapseLogin("allawayr", "Warbler44")
+synapseLogin()
 
 exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
 exp$gene_id <- exp$V1
