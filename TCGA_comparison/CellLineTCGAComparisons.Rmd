@@ -4,38 +4,187 @@ output:
   html_document: default
 ---
 
-```{r}
+```{r, include=FALSE}
 library(data.table)
 library(plyr)
 library(dplyr)
-library(reshape2)
 library(synapseClient)
 library(ggplot2)
-synapseLogin()
+library(tibble)
+library(parallel)
+synapseLogin("allawayr", "***REMOVED***")
 
 exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
-exp$gene_id <- rownames(exp)
+exp$gene_id <- exp$V1
+exp <- select(exp, -V1)
 
-rsem <- c("Syn5" = "syn5269658", "Syn6" = "syn5269682", "HS01.1" = "syn5567197", 
-          "HS01.2" = "syn5567201", "HS11.1" = "syn5567229", "HS11.2" = "syn5567233")
-
-i <- "syn5567233"
+rsem <- c("Syn5.1" = "syn5269658", "Syn5.2" = "syn5567353", "Syn6" = "syn5269682", 
+          "Syn6.DMSO.1" = "syn5567558", "HS01.1" = "syn5567197", "HS01.2" = "syn5567201",
+          "HS11.1" = "syn5567229", "HS11.2" = "syn5567233")
 ```
 
 
 ```{r}
-synodos<-lapply(rsem, function(i){
+synodos<-mclapply(rsem, function(i){
   x <- synGet(i)
   y <- read.table(x@filePath, header = TRUE)
   z <- y %>% select(gene_id, TPM)
   colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
   return(z)
-  })
+  }, mc.cores = detectCores())
 
-synodos.all <- synodos %>% Reduce(function(dtf1,dtf2) full_join(dtf1,dtf2,by="gene_id"), .)
+synodos.all <- synodos %>% Reduce(function(dtf1,dtf2)
+  full_join(dtf1,dtf2,by="gene_id"), .)
+colnames(synodos.all) <- gsub("\\-", "\\.", colnames(synodos.all))
+
 all <- inner_join(synodos.all, exp)
+rownames(all) <- all$gene_id
+all <- select(all, -gene_id)
+all.t <- as.data.frame(t(all))
 ```
+
+
+```{r, include=FALSE}
+##get colors
+tss <- read.table(synGet("syn9716995")@filePath, header = TRUE, sep = "\t", comment.char = "", quote = "")
+abr <- read.table(synGet("syn9717178")@filePath, header = TRUE, sep = "\t", comment.char = "", quote = "")
+abr <- full_join(tss, abr)
+samples <- distinct(as.data.frame(colnames(all)))
+samples$TSS.Code <- substring(samples$`colnames(all)`, 6, 7)
+samples <- full_join(samples, abr)
+samples <- select(samples, `colnames(all)`, Study.Abbreviation)
+colnames(samples) <- c("sample", "cancer")
+samples$cancer[1] <- NA
+
+##thanks jaeddy for the colors
+tcga_colors <- tribble(
+    ~Color, ~cancer,
+    "#ED2891", "BRCA",
+    "#B2509E", "GBM",
+    "#D49DC7", "LGG",
+    "#C1A72F", "ACC",
+    "#E8C51D", "PCPG",
+    "#F9ED32", "THCA",
+    "#104A7F", "CHOL",
+    "#9EDDF9", "COAD",
+    "#007EB5", "ESCA",
+    "#CACCDB", "LIHC",
+    "#6E7BA2", "PAAD",
+    "#DAF1FC", "READ",
+    "#00AEEF", "STAD",
+    "#F6B667", "CESC",
+    "#D97D25", "OV",
+    "#FBE3C7", "UCEC",
+    "#F89420", "UCS",
+    "#97D1A9", "HNSC",
+    "#009444", "UVM",
+    "#754C29", "LAML",
+    "#CEAC8F", "THYM",
+    "#3953A4", "DLBC",
+    "#BBD642", "SKCM",
+    "#00A99D", "SARC",
+    "#D3C3E0", "LUAD",
+    "#A084BD", "LUSC",
+    "#542C88", "MESO",
+    "#FAD2D9", "BLCA",
+    "#ED1C24", "KICH",
+    "#F8AFB3", "KIRC",
+    "#EA7075", "KIRP",
+    "#7E1918", "PRAD",
+    "#BE1E2D", "TGCT"
+)
+
+tcga_colors <- inner_join(samples, tcga_colors) %>% filter(!is.na(sample))
+colorBy <- tcga_colors 
+names <- colorBy$sample
+colorBy <- select(colorBy, Color)
+colorBy <- colorBy$Color
+names(colorBy) <- names
+```
+
+
 
 ```{r}
+cors<-mclapply(colnames(all)[1:8], function(i){
+  x <- select_(all, i) 
+  sapply(colnames(all), function(j){
+  cor(x,select_(all, j), method = "spearman")
+  })
+}, mc.cores = detectCores())
+
+cors2 <- as.data.frame(t(ldply(cors)))
+colnames(cors2) <- rownames(cors2)[1:8]
+cors2$sample <- rownames(cors2)
+cors2 <- left_join(cors2, samples)
+cors2$cancer <- as.character(cors2$cancer)
+cors2$cancer[1:8] <- "Synodos"
+cors2 <- filter(cors2, !is.na(cancer))
+cors2 <- full_join(cors2, tcga_colors)
+
+cors2$Color[1:8] <- "#FFFFFF"
+colors <- distinct(select(cors2, Color, cancer))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+cors2 <- filter(cors2, cancer != "Synodos")
+
+ggplot(cors2, aes(x=reorder(cancer, -AC7_A19, FUN = median), y= AC7_A19)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "Syn5-1") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -Syn5.1, FUN = median), y= Syn5.1)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "Syn5-2") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -BenMen1, FUN = median), y= BenMen1)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "Syn6-1") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -MTa450.7, FUN = median), y= MTa450.7)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "Syn6-2") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -HS01.1, FUN = median), y= HS01.1)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "HS01.1") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -HS01.2, FUN = median), y= HS01.2)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "HS01.2") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -HS11.1, FUN = median), y= HS11.1)) +
+  geom_boxplot(aes(fill = cancer)) + 
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "HS11.1") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplot(cors2, aes(x=reorder(cancer, -HS11.2, FUN = median), y= HS11.2)) +
+  geom_boxplot(aes(fill = cancer)) +
+  scale_fill_manual(values = colors2) +
+  labs(x="cancer", y="correlation", main = "HS11.2") +
+  ylim(0.5, 0.9) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
 ```
+
+
+

@@ -12,6 +12,7 @@ library(synapseClient)
 library(ggplot2)
 library(tibble)
 library(parallel)
+library(Rtsne.multicore)
 
 synapseLogin("allawayr", "***REMOVED***")
 
@@ -133,77 +134,50 @@ colorBy <- select(colorBy, Color)
 colorBy <- colorBy$Color
 names(colorBy) <- names
 ```
-
-```{r, message=FALSE, warning=FALSE, include=FALSE}
-cors<-mclapply(colnames(all)[1:32], function(i){
-  x <- select_(all, i) 
-  sapply(colnames(all), function(j){
-    cor(x,select_(all, j), method = "spearman")
-    })
-}, mc.cores = detectCores())
-
-cors2 <- as.data.frame(t(ldply(cors)))
-colnames(cors2) <- rownames(cors2)[1:32]
-cors2$sample <- rownames(cors2)
-cors2 <- left_join(cors2, samples)
-cors2$cancer <- as.character(cors2$cancer)
-cors2$cancer[1:32] <- "Synodos"
-cors2 <- filter(cors2, !is.na(cancer))
-cors2 <- full_join(cors2, tcga_colors)
-
-cors2$Color[1:32] <- "#FFFFFF"
-colors <- distinct(select(cors2, Color, cancer))
-colors2 <- colors$Color
-names(colors2) <- colors$cancer
-cors2 <- filter(cors2, cancer != "Synodos")
-cors2 <- filter(cors2, !is.na(MN571.2))
-```
-
+##t-SNE colored by cancer
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-for(i in 1:32){
-  x<-ggplot(cors2, aes(x=reorder(cancer, -cors2[,i], FUN = median), y=cors2[,i])) +
-    geom_boxplot(aes(fill = cancer)) + 
-    scale_fill_manual(values = colors2) +
-    labs(x="cancer", y="correlation", title = names(cors2[i])) +
-    ylim(0.5, 0.9) +
-    theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "none")
-  
-  plot(x)
-}
-```
+all.t <- t(all)
+set.seed(30)
+tsne_out <- Rtsne.multicore(all.t)
 
-##sanity check, compare using TCGA samples as ref 
-```{r, message=FALSE, warning=FALSE}
-foo <- sample(colnames(all), 30)
-cors<-mclapply(foo, function(i){
-  x <- select_(all, i) 
-  sapply(colnames(all), function(j){
-  cor(x,select_(all, j), method = "spearman")
-  })
-}, mc.cores = detectCores())
 
-cors3 <- as.data.frame(t(ldply(cors)))
-cors3$sample <- rownames(cors3)
-colnames(cors3) <- c(foo, "sample")
-cors3 <- left_join(cors3, samples)
-cors3$cancer <- as.character(cors3$cancer)
-cors3$cancer[1:32] <- "Synodos"
-cors3 <- filter(cors3, !is.na(cancer))
-cors3 <- left_join(cors3, tcga_colors)
-colors <- distinct(select(cors3, Color, cancer))
+df <- as.data.frame(tsne_out$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:32] <- "Synodos"
+df$Color[1:32] <- "#000000"
+colors <- distinct(select(df, cancer, Color))
 colors2 <- colors$Color
 names(colors2) <- colors$cancer
 
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
 
-for(i in 1:30){
-   x<-ggplot(cors3, aes(x=reorder(cancer, -cors3[,i], FUN = median), y=cors3[,i])) +
-    geom_boxplot(aes(fill = cancer)) + 
-    scale_fill_manual(values = colors2) +
-    labs(x="cancer", y="correlation", title = paste(names(cors3[i])," ",tcga_colors$cancer[tcga_colors$sample==names(cors3[i])])) +
-    ylim(0.5, 1.0) +
-    theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "none")
-  plot(x)
-}
+plot(p)
+```
+##t-SNE synodos black
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 
+colors3<-colors
+colors3$Color[colors3$cancer!="Synodos"] <- "#000000"
+colors3$Color[colors3$cancer!="Synodos"] <- "#BBD642"
+colors4 <- colors3$Color
+names(colors4) <- colors3$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer)) + 
+     geom_point() + 
+     scale_color_manual(values=colors4) +
+     geom_point(data = subset(df, cancer = "Synodos")) 
+
+plot(p)
+```
+##t-SNE synodos only
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+p <- ggplot(data=df %>% filter(cancer == "Synodos"), aes(x=V1,y=V2, color = cancer)) + 
+     geom_point() +
+     scale_color_manual(values=colors4)
+
+plot(p)
 ```
 
