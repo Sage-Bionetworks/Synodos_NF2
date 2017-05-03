@@ -1,0 +1,220 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include=FALSE}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(synapseClient)
+library(ggplot2)
+library(tibble)
+library(parallel)
+synapseLogin()
+
+
+exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
+exp$gene_id <- exp$V1
+exp <- select(exp, -V1)
+
+rsem <- tibble::tribble(
+         ~synid,          ~sample,
+   "syn5269690",       "MIN31981",
+   "syn5269698",         "MN408a",
+   "syn5269706",         "MN408b",
+   "syn5269714",         "MN408c",
+   "syn5269722",    "MN460_MN556",
+   "syn5269731",          "MN466",
+   "syn5269739",          "MN479",
+   "syn5269747",          "MN491",
+   "syn5269755",          "MN492",
+   "syn5269762",          "MN505",
+   "syn5269771",          "MN506",
+   "syn5269779",          "MN514",
+   "syn5269787",          "MN516",
+   "syn5269795",          "MN520",
+   "syn5269803",          "MN521",
+   "syn5269810",          "MN527",
+   "syn5269819",          "MN529",
+   "syn5269827",          "MN533",
+   "syn5269835",          "MN548",
+   "syn5269843",          "MN560",
+   "syn5269850",          "MN563",
+   "syn5269858",          "MN567",
+   "syn5269866",          "MN571",
+   "syn5269874",          "MN572",
+   "syn5269881",  "NFT_735_MN522",
+   "syn5269889",  "xT_6491_MN474",
+   "syn5567261",        "MN491-1",
+   "syn5567265",        "MN491-2",
+   "syn5567269",        "MN527-1",
+   "syn5567273",        "MN527-2",
+   "syn5567277",        "MN571-1",
+   "syn5567281",        "MN571-2"
+  )
+
+rsem2 <- (c("Syn.DMSO.1" = "syn5567534", "Syn1.DMSO.2" = "syn5567538","Syn5.1" = "syn5269658", "Syn5.2" = "syn5567353", "Syn6" = "syn5269682", 
+          "Syn6.DMSO.1" = "syn5567558", "HS01.1" = "syn5567197", "HS01.2" = "syn5567201",
+          "HS11.1" = "syn5567229", "HS11.2" = "syn5567233"))
+
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+synodos<-mclapply(rsem$synid, function(i){
+  x <- synGet(i)
+  y <- read.table(x@filePath, header = TRUE)
+  z <- y %>% select(gene_id, TPM)
+  colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
+  return(z)
+  }, mc.cores=detectCores())
+
+synodos.mn <- synodos %>% Reduce(function(dtf1,dtf2)
+  full_join(dtf1,dtf2,by="gene_id"), .)
+colnames(synodos.mn) <- gsub("\\-", "\\.", colnames(synodos.mn))
+
+synodos2<-mclapply(rsem2, function(i){
+  x <- synGet(i)
+  y <- read.table(x@filePath, header = TRUE)
+  z <- y %>% select(gene_id, TPM)
+  colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
+  return(z)
+  }, mc.cores = detectCores())
+
+synodos.cell <- synodos2 %>% Reduce(function(dtf1,dtf2)
+  full_join(dtf1,dtf2,by="gene_id"), .)
+colnames(synodos.cell) <- gsub("\\-", "\\.", colnames(synodos.cell))
+
+synodos.all <- inner_join(synodos.mn, synodos.cell)
+
+all <- inner_join(synodos.all, exp)
+rownames(all) <- all$gene_id
+all <- select(all, -gene_id)
+all <- as.data.frame(t(all))
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+exp.t <- as.data.frame(t(exp))
+
+foo <- select(exp.t,NF2)
+cors<-sapply(colnames(exp.t), function(j){
+    cor(foo$NF2,select_(exp.t, j), method = "spearman")
+})
+
+cors2 <- as.data.frame(cors)
+cors2$gene_id <- rownames(cors2)
+
+ggplot(cors2, aes(x=cors)) +
+  geom_histogram()
+  
+posi <- filter(cors2, cors >= 0.3)$gene_id
+anti <- filter(cors2, cors <= -0.3)$gene_id
+corr <- c(posi, anti)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+all.sub <- as.data.frame(t(all))
+all.sub$gene_id <- rownames(all.sub)
+all.sub <- filter(all.sub, gene_id %in% corr)
+rownames(all.sub) <- all.sub$gene_id
+all.sub <- select(all.sub, -gene_id)
+
+cors<-mclapply(colnames(all.sub)[1:32], function(i){
+  x <- select_(all.sub, i) 
+  sapply(colnames(all.sub), function(j){
+    cor(x,select_(all.sub, j), method = "spearman")
+    })
+}, mc.cores = detectCores())
+
+##get colors
+tss <- read.table(synGet("syn9716995")@filePath, header = TRUE, sep = "\t", comment.char = "", quote = "")
+abr <- read.table(synGet("syn9717178")@filePath, header = TRUE, sep = "\t", comment.char = "", quote = "")
+abr <- full_join(tss, abr)
+samples <- distinct(as.data.frame(colnames(all.sub)))
+samples$TSS.Code <- substring(samples$`colnames(all.sub)`, 6, 7)
+samples <- full_join(samples, abr)
+samples <- select(samples, `colnames(all.sub)`, Study.Abbreviation)
+colnames(samples) <- c("sample", "cancer")
+
+##thanks jaeddy for the colors
+tcga_colors <- tribble(
+    ~Color, ~cancer,
+    "#ED2891", "BRCA",
+    "#B2509E", "GBM",
+    "#D49DC7", "LGG",
+    "#C1A72F", "ACC",
+    "#E8C51D", "PCPG",
+    "#F9ED32", "THCA",
+    "#104A7F", "CHOL",
+    "#9EDDF9", "COAD",
+    "#007EB5", "ESCA",
+    "#CACCDB", "LIHC",
+    "#6E7BA2", "PAAD",
+    "#DAF1FC", "READ",
+    "#00AEEF", "STAD",
+    "#F6B667", "CESC",
+    "#D97D25", "OV",
+    "#FBE3C7", "UCEC",
+    "#F89420", "UCS",
+    "#97D1A9", "HNSC",
+    "#009444", "UVM",
+    "#754C29", "LAML",
+    "#CEAC8F", "THYM",
+    "#3953A4", "DLBC",
+    "#BBD642", "SKCM",
+    "#00A99D", "SARC",
+    "#D3C3E0", "LUAD",
+    "#A084BD", "LUSC",
+    "#542C88", "MESO",
+    "#FAD2D9", "BLCA",
+    "#ED1C24", "KICH",
+    "#F8AFB3", "KIRC",
+    "#EA7075", "KIRP",
+    "#7E1918", "PRAD",
+    "#BE1E2D", "TGCT"
+)
+
+tcga_colors <- inner_join(samples, tcga_colors) %>% filter(!is.na(sample))
+colorBy <- tcga_colors 
+names <- colorBy$sample
+colorBy <- select(colorBy, Color)
+colorBy <- colorBy$Color
+names(colorBy) <- names
+
+cors2 <- as.data.frame(t(ldply(cors)))
+colnames(cors2) <- rownames(cors2)[1:32]
+cors2$sample <- rownames(cors2)
+cors2 <- left_join(cors2, samples)
+cors2$cancer <- as.character(cors2$cancer)
+cors2$cancer[1:42] <- "Synodos"
+cors2 <- filter(cors2, !is.na(cancer))
+cors2 <- full_join(cors2, tcga_colors)
+
+cors2$Color[1:32] <- "#FFFFFF"
+colors <- distinct(select(cors2, Color, cancer))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+cors2 <- filter(cors2, cancer != "Synodos")
+cors2 <- filter(cors2, !is.na(MN571.2))
+
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+for(i in 1:32){
+  x<-ggplot(cors2, aes(x=reorder(cancer, -cors2[,i], FUN = median), y=cors2[,i])) +
+    geom_boxplot(aes(fill = cancer)) + 
+    scale_fill_manual(values = colors2) +
+    labs(x="cancer", y="correlation", title = names(cors2[i])) +
+    ylim(0.0, 1.0) +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "none")
+  
+  plot(x)
+}
+```
+
+
+
