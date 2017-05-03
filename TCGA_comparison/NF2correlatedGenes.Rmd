@@ -1,6 +1,7 @@
 ---
 output:
-  pdf_document: default
+  pdf_document: 
+    fig_crop: no
   html_document: default
 ---
 
@@ -96,8 +97,7 @@ all <- as.data.frame(t(all))
 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-exp.t <- as.data.frame(t(exp))
-
+exp.t <-select(all, one_of(exp$gene_id))
 foo <- select(exp.t,NF2)
 cors<-sapply(colnames(exp.t), function(j){
     cor(foo$NF2,select_(exp.t, j), method = "spearman")
@@ -122,7 +122,7 @@ all.sub <- filter(all.sub, gene_id %in% corr)
 rownames(all.sub) <- all.sub$gene_id
 all.sub <- select(all.sub, -gene_id)
 
-cors<-mclapply(colnames(all.sub)[1:32], function(i){
+cors<-mclapply(colnames(all.sub)[1:42], function(i){
   x <- select_(all.sub, i) 
   sapply(colnames(all.sub), function(j){
     cor(x,select_(all.sub, j), method = "spearman")
@@ -185,7 +185,7 @@ colorBy <- colorBy$Color
 names(colorBy) <- names
 
 cors2 <- as.data.frame(t(ldply(cors)))
-colnames(cors2) <- rownames(cors2)[1:32]
+colnames(cors2) <- rownames(cors2)[1:42]
 cors2$sample <- rownames(cors2)
 cors2 <- left_join(cors2, samples)
 cors2$cancer <- as.character(cors2$cancer)
@@ -193,7 +193,7 @@ cors2$cancer[1:42] <- "Synodos"
 cors2 <- filter(cors2, !is.na(cancer))
 cors2 <- full_join(cors2, tcga_colors)
 
-cors2$Color[1:32] <- "#FFFFFF"
+cors2$Color[1:42] <- "#FFFFFF"
 colors <- distinct(select(cors2, Color, cancer))
 colors2 <- colors$Color
 names(colors2) <- colors$cancer
@@ -215,6 +215,27 @@ for(i in 1:32){
   plot(x)
 }
 ```
+
+```{r, results='asis', echo=FALSE}
+cat("\\newpage")
+```
+
+```{r, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
+
+cors3<-mclapply(colnames(cors2)[1:42], function(i){
+  sapply(unique(cors2$cancer), function(j){
+    median((filter(select_(cors2, i, "cancer"), cancer==j)[[i]]))
+    })
+}, mc.cores = detectCores())
+
+cors3<-ldply(cors3)
+rownames(cors3) <- colnames(cors2)[1:42]
+library(pheatmap)
+library(viridis)
+pheatmap(cors3, color =  plasma(100), cellwidth = 10, cellheight = 10, border_color = NA)
+
+```
+
 
 
 
