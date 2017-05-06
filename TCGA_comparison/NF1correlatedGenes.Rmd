@@ -14,18 +14,21 @@ library(tibble)
 library(parallel)
 synapseLogin()
 
-exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
+exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE, )
 ```
 
 ```{r, message=FALSE, warning=FALSE, include=FALSE}
-all <- exp
+all <- t(exp)
+all <- as.data.frame(all)
+colnames(all) <- exp$V1
+all <- all[-1,]
 ```
 
-
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-foo <- select(all,NF2)
+foo <- select(all,NF1)
+
 cors<-sapply(colnames(all), function(j){
-    cor(foo$NF2,select_(all, j), method = "spearman")
+    cor(foo$NF1, select_(all, j), method = "spearman")
 })
 
 cors2 <- as.data.frame(cors)

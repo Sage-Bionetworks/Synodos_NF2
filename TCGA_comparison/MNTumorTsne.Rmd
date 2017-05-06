@@ -1,6 +1,8 @@
 ---
 output:
-  pdf_document: default
+  pdf_document: 
+    fig_height: 6
+    fig_width: 8
   html_document: default
 ---
 
@@ -64,25 +66,25 @@ rsem2 <- (c("Syn.DMSO.1" = "syn5567534", "Syn1.DMSO.2" = "syn5567538","Syn5.1" =
 
 
 ```{r, message=FALSE, warning=FALSE, include=FALSE}
-synodos<-lapply(rsem$synid, function(i){
+synodos<-mclapply(rsem$synid, function(i){
   x <- synGet(i)
   y <- read.table(x@filePath, header = TRUE)
   z <- y %>% select(gene_id, TPM)
   colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
   return(z)
-  })
+  }, mc.cores = detectCores())
 
 synodos.mn <- synodos %>% Reduce(function(dtf1,dtf2)
   full_join(dtf1,dtf2,by="gene_id"), .)
 colnames(synodos.mn) <- gsub("\\-", "\\.", colnames(synodos.mn))
 
-synodos2<-lapply(rsem2, function(i){
+synodos2<-mclapply(rsem2, function(i){
   x <- synGet(i)
   y <- read.table(x@filePath, header = TRUE)
   z <- y %>% select(gene_id, TPM)
   colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
   return(z)
-  })
+  }, mc.cores = detectCores())
 
 synodos.cell <- synodos2 %>% Reduce(function(dtf1,dtf2)
   full_join(dtf1,dtf2,by="gene_id"), .)
@@ -154,10 +156,9 @@ names(colorBy) <- names
 ```
 ##t-SNE colored by cancer
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-all.t <- t(all)
+all.t <- as.data.frame(t(all))
 set.seed(30)
 tsne_out <- Rtsne.multicore(all.t)
-
 
 df <- as.data.frame(tsne_out$Y)
 df$sample <- rownames(all.t)
@@ -197,9 +198,96 @@ p <- ggplot(data=df %>% filter(cancer == "Synodos"), aes(x=V1,y=V2, color = canc
 plot(p)
 ```
 
-##rank based tsne, perplexity 2,5,30,50,1000 top to bottom
+##tpm expression data, tsne, perplexity 2,5,30,50,1000 top to bottom
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+set.seed(30)
+tsne_out <- Rtsne.multicore(all.t,  perplexity = 2)
+tsne_out1 <- Rtsne.multicore(all.t, perplexity = 5)
+tsne_out2 <- Rtsne.multicore(all.t, perplexity = 30)
+tsne_out3 <- Rtsne.multicore(all.t, perplexity = 50)
+tsne_out4 <- Rtsne.multicore(all.t, perplexity = 1000)
+
+df <- as.data.frame(tsne_out$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:42] <- "Synodos"
+df$Color[1:42] <- "#000000"
+colors <- distinct(select(df, cancer, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out1$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:42] <- "Synodos"
+df$Color[1:42] <- "#000000"
+
+colors <- distinct(select(df, cancer, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out2$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:42] <- "Synodos"
+df$Color[1:42] <- "#000000"
+colors <- distinct(select(df, cancer, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out3$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:40] <- "Synodos"
+df$Color[1:40] <- "#000000"
+colors <- distinct(select(df, cancer, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out4$Y)
+df$sample <- rownames(all.t)
+df <- left_join(df, tcga_colors)
+df$cancer[1:42] <- "Synodos"
+df$Color[1:42] <- "#000000"
+colors <- distinct(select(df, cancer, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$cancer
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+```
+
+##rank based expression data, tsne, perplexity 2,5,30,50,1000 top to bottom
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-all.t <- as.data.frame(t(all))
+
 all.rank <- mclapply(colnames(all.t), function(p) rank(all.t[,p]), mc.cores = detectCores())
 
 all.rank <- as.data.frame(t(ldply(all.rank)))
@@ -290,6 +378,7 @@ p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer, alpha = 0.25)) +
 plot(p)
 ```
 
+##perplexity=3
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 syns <- colnames(synodos.all[,-1])
 syn <- select(all, one_of(syns))
@@ -304,9 +393,9 @@ df$sample <- rownames(syn.t)
 df <- left_join(df, tcga_colors)
 df$cancer[1:32] <- "MN_Tumor"
 df$Color[1:32] <- "red"
-df$cancer[33:38] <- "SCH_Cell"
+df$cancer[33:38] <- "MN_Cell"
 df$Color[33:38] <- "blue"
-df$cancer[39:42] <- "MN_Cell"
+df$cancer[39:42] <- "SCH_Cell"
 df$Color[39:42] <- "darkgreen"
 colors <- distinct(select(df, cancer, Color))
 colors2 <- colors$Color
@@ -318,7 +407,11 @@ p <- ggplot(data=df, aes(x=V1,y=V2, color = cancer)) +
      scale_color_manual(values=colors2) 
 
 plot(p)
+```
 
+##perplexity=9
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 tsne_out_syn_9 <- Rtsne.multicore(syn.t, perplexity = 9)
 
 df <- as.data.frame(tsne_out_syn_9$Y)
@@ -326,9 +419,9 @@ df$sample <- rownames(syn.t)
 df <- left_join(df, tcga_colors)
 df$cancer[1:32] <- "MN_Tumor"
 df$Color[1:32] <- "red"
-df$cancer[33:38] <- "SCH_Cell"
+df$cancer[33:38] <- "MN_Cell"
 df$Color[33:38] <- "blue"
-df$cancer[39:42] <- "MN_Cell"
+df$cancer[39:42] <- "SCH_Cell"
 df$Color[39:42] <- "darkgreen"
 colors <- distinct(select(df, cancer, Color))
 colors2 <- colors$Color
