@@ -57,14 +57,15 @@ rsem <- tibble::tribble(
 
 ```
 
+
 ```{r, message=FALSE, warning=FALSE, include=FALSE}
-synodos<-mclapply(rsem$synid, function(i){
+synodos<-lapply(rsem$synid, function(i){
   x <- synGet(i)
   y <- read.table(x@filePath, header = TRUE)
   z <- y %>% select(gene_id, TPM)
   colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
   return(z)
-  }, mc.cores = detectCores())
+  })
 
 synodos.all <- synodos %>% Reduce(function(dtf1,dtf2)
   full_join(dtf1,dtf2,by="gene_id"), .)
@@ -206,25 +207,3 @@ for(i in 1:30){
 
 ```
 
-```{r, results='asis', echo=FALSE}
-cat("\\newpage")
-```
-
-##heatmap of median correlation by cancer/synodos sample
-
-```{r, echo=FALSE, fig.height=8, fig.width=8, message=FALSE, warning=FALSE}
-
-cors4<-mclapply(colnames(cors2)[1:32], function(i){
-  sapply(unique(cors2$cancer), function(j){
-    median((filter(select_(cors2, i, "cancer"), cancer==j)[[i]]))
-    })
-}, mc.cores = detectCores())
-
-cors4<-ldply(cors4)
-rownames(cors4) <- colnames(cors2)[1:32]
-library(pheatmap)
-library(viridis)
-
-pheatmap(cors4, color =  plasma(100), cellwidth = 10, cellheight = 10, border_color = NA)
-
-```

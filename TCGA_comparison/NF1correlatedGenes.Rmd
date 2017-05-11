@@ -1,10 +1,5 @@
----
-output:
-  pdf_document: default
-  html_document: default
----
 
-```{r, include=FALSE}
+```{r}
 library(data.table)
 library(plyr)
 library(dplyr)
@@ -14,32 +9,45 @@ library(tibble)
 library(parallel)
 synapseLogin()
 
-exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE, )
-```
+exp <-fread(synGet("syn9706056")@filePath, sep = "\t", header = TRUE)
+rownames(exp) <- exp$V1
+exp <- exp[,-1]
+names <- exp$V1 
 
-```{r, message=FALSE, warning=FALSE, include=FALSE}
-all <- t(exp)
-all <- as.data.frame(all)
-colnames(all) <- exp$V1
-all <- all[-1,]
-```
+all <- as.data.frame(t(exp))
+colnames(all) <- names
+rownames(all) <- colnames(exp)
+write.table(all, "expMatrix.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
 foo <- select(all,NF1)
 
-cors<-sapply(colnames(all), function(j){
-    cor(foo$NF1, select_(all, j), method = "spearman")
-})
 
-cors2 <- as.data.frame(cors)
+all <- fread("expMatrix.txt", sep = "\t", header = TRUE, fill = TRUE)
+names <- colnames(all)
+cancers <- all$AADACL4
+all2 <- all[,-1]
+
+rownames(all2) <- cancers
+colnames(all2) <- names[1:14655]
+
+all<-all2
+
+cors<-mclapply(colnames(all), function(j){
+  cor(select(all,NF1), select_(all, j), method = "spearman")
+}, mc.cores = 3)
+
+cors2 <- as.data.frame(t(as.data.frame(cors)))
 cors2$gene_id <- rownames(cors2)
+
+colnames(cors2) <- c("cors", "gene_id")
 
 ggplot(cors2, aes(x=cors)) +
   geom_histogram()
-  
-posi <- filter(cors2, cors >= 0.3)$gene_id
-anti <- filter(cors2, cors <= -0.3)$gene_id
-corr <- c(posi, anti)
+
+write.table(cors2, "NF1corGenes.txt", sep="\t", row.names = FALSE)
+
+synStore(File("NF1corGenes.txt", parentId = "syn9766689"), used = "syn9706056", executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/TCGA_comparison/NF1correlatedGenes.Rmd")
+
 ```
 
 
