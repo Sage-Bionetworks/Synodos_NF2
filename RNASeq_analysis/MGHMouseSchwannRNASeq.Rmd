@@ -1,0 +1,68 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(synapseClient)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ggrepel)
+synapseLogin()
+
+samples<-read.table(synGet("syn7437782")@filePath, sep = "\t", header = TRUE) %>% filter(!is.na(geneName))
+samples <- unite(samples,comp,cellLine1,treatment1,cellLine2,treatment2, sep = "-")
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("MS03-DMSO-MS12-DMSO","MS03-CUDC-MS12-CUDC","MS03-GSK458-MS12-GSK458","MS03-Pano-MS12-Pano")  
+
+x<-"MS03-Pano-MS03-DMSO"
+
+for(x in list){
+  bar <- filter(samples, comp==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(geneName) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=geneName %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("MS12-CUDC-MS12-DMSO","MS12-GSK458-MS12-DMSO","MS12-Pano-MS12-DMSO","MS03-CUDC-MS03-DMSO",
+          "MS03-GSK458-MS03-DMSO","MS03-Pano-MS03-DMSO")  
+
+library(stringr)
+for(x in list){
+  bar <- filter(samples, comp==x)
+  bar2 <- filter(bar, PValue < 0.05) %>% group_by(geneName) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=geneName %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = str_wrap(paste("log2(FC)", nrow(bar3), "most significant, NON-adj pval < 0.05")), title = x) +
+    coord_flip()
+  print(p)
+}
+
+```

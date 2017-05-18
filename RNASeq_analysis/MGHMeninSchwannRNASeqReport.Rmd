@@ -1,0 +1,153 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(synapseClient)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ggrepel)
+synapseLogin()
+
+samples<-read.table(synGet("syn6166525")@filePath, sep = "\t", header = TRUE)
+samples$Hugo_Gene <- gsub("\\|.+","",samples$geneName)
+```
+
+##ACROSS CELL LINES, WITHIN TREATMENTS
+##Syn5 vs Syn1
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("Syn5.DMSO-Syn1.DMSO","Syn5.CUDC907-Syn1.CUDC907","Syn5.GSK2126458-Syn1.GSK2126458","Syn5.Panobinostat-Syn1.Panobinostat")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```
+
+##Syn6 vs Syn1
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("Syn6.DMSO-Syn1.DMSO","Syn6.CUDC907-Syn1.CUDC907","Syn6.GSK2126458-Syn1.GSK2126458","Syn6.Panobinostat-Syn1.Panobinostat")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```
+
+##HS01 vs HS11
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("HS01.DMSO-HS11.DMSO","HS01.CUDC907-HS11.CUDC907","HS01.GSK2126458-HS11.GSK2126458", "HS01.Panobinostat-HS11.Panobinostat")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```
+
+##WITHIN CELL LINES, ACROSS TREATMENTS
+##Syn1
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("Syn1.CUDC907-Syn1.DMSO","Syn1.GSK2126458-Syn1.DMSO","Syn1.Panobinostat-Syn1.DMSO")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```
+
+##Syn5
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("Syn5.CUDC907-Syn5.DMSO","Syn5.GSK2126458-Syn5.DMSO","Syn5.Panobinostat-Syn5.DMSO")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```
+
+
+##Syn6
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=6}
+list <- c("Syn6.CUDC907-Syn6.DMSO","Syn6.GSK2126458-Syn6.DMSO","Syn6.Panobinostat-Syn6.DMSO")
+
+for(x in list){
+  bar <- filter(samples, diffExptest==x)
+  bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
+
+  p<-ggplot(bar3 , aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    geom_bar(stat = "identity") +
+    scale_fill_viridis(option = "C") +
+    theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), 
+         y = paste("log2(FC)", nrow(bar3), "most significant, BH < 0.1"), title = x) +
+    coord_flip()
+  print(p)
+}
+```

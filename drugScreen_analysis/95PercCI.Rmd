@@ -1,0 +1,87 @@
+---
+title: "IG50 Confidence Intervals"
+author: "Robert Allaway, Abhishek Pratap"
+date: "5/17/2017"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+tables: true
+---
+  
+```{r setup, include=FALSE}
+library("synapseClient")
+library("nplr")
+library("plyr")
+library("dplyr")
+library("data.table")
+library("plotly")
+library("reshape2")
+library("pander")
+synapseLogin()
+
+UCF_normViab <- 'syn2773870'
+UCF_normViab <- synGet(UCF_normViab)
+UCF_normViab <- read.delim(UCF_normViab@filePath, check.names=F, sep="\t", header=T,stringsAsFactors = FALSE)
+UCF_normViab$cellLine <- gsub("^ ", "", UCF_normViab$cellLine)
+UCF_normViab$cellLine <- gsub("Nf2 --", "Nf2--", UCF_normViab$cellLine)
+
+#drop unnecassary cols
+drop_cols <- c('plate', 'medianDMSO', 'viability')
+UCF_normViab <- UCF_normViab[, !colnames(UCF_normViab) %in% drop_cols]
+
+HS01.pano <- UCF_normViab %>% filter(drug=="Panobinostat" & cellLine == "HS01")
+HS11.pano <- UCF_normViab %>% filter(drug=="Panobinostat" & cellLine == "HS11")
+HS01.cudc <- UCF_normViab %>% filter(drug=="CUDC907" & cellLine == "HS01")
+HS11.cudc <- UCF_normViab %>% filter(drug=="CUDC907" & cellLine == "HS11")
+
+HS01.pano <- nplr(HS01.pano$conc, HS01.pano$normViability)
+HS11.pano <- nplr(HS11.pano$conc, HS11.pano$normViability)
+HS01.cudc <- nplr(HS01.cudc$conc, HS01.cudc$normViability)
+HS11.cudc <- nplr(HS11.cudc$conc, HS11.cudc$normViability)
+
+x<-getEstimates(HS01.pano, conf.level = .95)
+a1<-x$x[5]*10^9
+b1<-x$x.975[5]*10^9
+c1<-x$x.025[5]*10^9
+
+x<-getEstimates(HS11.pano, conf.level = .95)
+a2<-x$x[5]*10^9
+b2<-x$x.975[5]*10^9
+c2<-x$x.025[5]*10^9
+
+x<-getEstimates(HS01.cudc, conf.level = .95)
+a3<-x$x[5]*10^9
+b3<-x$x.975[5]*10^9
+c3<-x$x.025[5]*10^9
+
+x<-getEstimates(HS11.cudc, conf.level = .95)
+a4<-x$x[5]*10^9
+b4<-x$x.975[5]*10^9
+c4<-x$x.025[5]*10^9
+
+a1 <- signif(a1,3)
+b1 <- signif(b1,3)
+c1 <- signif(c1,3)
+a2 <- signif(a2,3)
+b2 <- signif(b2,3)
+c2 <- signif(c2,3)
+a3 <- signif(a3,3)
+b3 <- signif(b3,3)
+c3 <- signif(c3,3)
+a4 <- signif(a4,3)
+b4 <- signif(b4,3)
+c4 <- signif(c4,3)
+
+
+mat<-matrix(c("HS01 Panobinostat", paste(a1, " (",c1," - ",b1,")", sep = ""),
+         "HS11 Panobinostat", paste(a2, " (",c2," - ", b2,")", sep = ""),
+         "HS01 CUDC907", paste(a3, " (",c3," - ",b3,")", sep = ""),
+         "HS11 CUDC907", paste(a4, " (",c4," - ",b4,")", sep = "")),
+          4, 2, byrow=TRUE)
+
+colnames(mat) <- c("Treatment", "IG50 (95% CI, nM)")
+```
+```{r, echo=FALSE}
+pander(mat)  
+```

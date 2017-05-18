@@ -48,38 +48,34 @@ colnames(newname) <- c("sample", "comparison")
 
 samples2 <- full_join(samples2, newname)
 colnames(samples2)[colnames(samples2)=="X"] <- "Hugo_Gene"
-x <-  "HS01.DMSO-HS11.DMSO"
 
 for(x in unique(samples2$comparison)){
   print(x)
   bar <- filter(samples2, comparison==x)
-  bar2 <- filter(bar, padj < 0.05)
-  bar2 <- filter(bar, log2FoldChange > 3)
-  bar3 <- filter(bar, padj < 0.05)
-  bar3 <- filter(bar, log2FoldChange < -3)
-  bar4 <- rbind(bar2,bar3)
-  p<-ggplot(bar4, aes(x=Hugo_Gene %>% reorder(log2FoldChange) , y=log2FoldChange, fill = log2FoldChange)) +
+  bar2 <- filter(bar, padj < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -log2FoldChange) %>% ungroup()
+  
+  p<-ggplot(bar2, aes(x=Hugo_Gene %>% reorder(log2FoldChange) , y=log2FoldChange, fill = log2FoldChange)) +
     geom_bar(stat = "identity") +
     scale_fill_viridis(option = "C") +
     theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
     theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 8)) +
-    labs(x = paste("Gene (n =",nrow(bar4),")"), y = "log2(FC), adj p<0.05", title = x) +
+    labs(x = paste("Gene (n = ", nrow(bar2),")", sep =""), y = "log2(FC), BH<0.1", title = x) +
     coord_flip()
-  ggsave(paste(x,".png", sep = ""), height = 8, width = 5)
+  ggsave(paste("UNCDEgenePlots/",x,".png", sep = ""), height = 8, width = 5)
   
-  bar5 <- rbind((bar4 %>% top_n(50, log2FoldChange)), (bar4 %>% top_n(50, -log2FoldChange)))
+  bar3 <- distinct(rbind((bar2 %>% top_n(15, log2FoldChange)), (bar2 %>% top_n(15, -log2FoldChange))))
   
-  p<-ggplot(bar5 , aes(x=Hugo_Gene %>% reorder(log2FoldChange), y=log2FoldChange, fill = log2FoldChange)) +
+  p<-ggplot(bar3, aes(x=Hugo_Gene %>% reorder(log2FoldChange), y=log2FoldChange, fill = log2FoldChange)) +
     geom_bar(stat = "identity") +
     scale_fill_viridis(option = "C") +
     theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
-    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 7)) +
-    labs(x = paste("Gene (n = 25)"), y = "log2(FC) 25 most significant", title = x) +
+    theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
+    labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), y = paste("log2(FC)", nrow(bar3), "most significant"), title = x) +
     coord_flip()
-  ggsave(paste(x,"top50.png", sep = ""), height = 8, width = 5)
+  ggsave(paste("UNCDEgenePlots/",x,"top30.png", sep = ""), height = 8, width = 5)
   
-  synStore(File(paste(x,".png", sep = ""), parentId = "syn9777514"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
-  synStore(File(paste(x,"top50.png", sep = ""), parentId = "syn9777514"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
+  synStore(File(paste("UNCDEgenePlots/",x,".png", sep = ""), parentId = "syn9779338"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
+  synStore(File(paste("UNCDEgenePlots/",x,"top30.png", sep = ""), parentId = "syn9779338"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
 }
 
 dat<-read.table(synGet("syn5840701")@filePath, sep = "\t", header = TRUE, comment.char = "")
@@ -101,8 +97,10 @@ bar <- filter(samples2, comparison=="HS01.DMSO-HS11.DMSO") %>% select(Hugo_Gene,
 
 ggplot(bar, aes(y = log2FoldChange, x = Mean_Kinome_Ratio)) +
   geom_point() +
-  geom_point(data = bar %>% filter(padj<=0.1), aes(color = "red")) +
-  geom_text(data = bar %>% filter(padj<=0.1), aes(label = Hugo_Gene)) +
+  geom_point(data = bar %>% filter(padj<=0.1)) +
+  geom_label_repel(data = bar %>% filter(abs(log2FoldChange)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
+                   aes(label = Hugo_Gene, fill = padj<0.1)) +
+  scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0))
 
@@ -123,6 +121,6 @@ ggplot(bar, aes(y = log2FoldChange, x = Mean_Kinome_Ratio)) +
   geom_point(data = bar %>% filter(padj<=0.1)) +
   geom_label_repel(data = bar %>% filter(abs(log2FoldChange)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
                    aes(label = Hugo_Gene, fill = padj<0.1)) +
-  scale_fill_manual(values = c('TRUE' = '#8DE969', 'FALSE' = '#7A7978'), guide = "none") +
+  scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0))
