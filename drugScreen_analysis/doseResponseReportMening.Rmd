@@ -8,11 +8,12 @@ output:
   html_document: default
 tables: true
 geometry: landscape
+header-includes: 
+  - \pagenumbering{gobble}
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-options(digits = 4)
 ```
 
 ```{r, include=FALSE}

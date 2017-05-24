@@ -8,7 +8,8 @@ output:
   html_document: default
 tables: true
 geometry: landscape
-
+header-includes: 
+  - \pagenumbering{gobble}
 ---
 
 ```{r setup, include=FALSE}

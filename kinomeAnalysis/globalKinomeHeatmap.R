@@ -31,26 +31,34 @@ kin.center <- scale(kin2, center = medians, scale = FALSE)
 kin.scale <- scale(kin2, center = medians, scale = sd)
 
 pdf("kinome-mini-complete.pdf")
-pheatmap(kin2, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 3)
-pheatmap(kin.center, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 3)
-pheatmap(kin.scale, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 3)
+pheatmap(kin.scale, border_color = NA, fontsize_row = 3)
 dev.off()
 
 pdf("kinome-zoom-complete.pdf", height = 15)
-pheatmap(kin2, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 5,
+pheatmap(kin.scale, border_color = NA, fontsize_row = 5,
          fontsize_col = 5, cellwidth = 5, cellheight = 5, height = 11)
 dev.off()
 
 ##more than 8 NAs/case and hclust spits out error 
-kin2<-kin[rowSums(is.na(kin))<8,]
+kin2<-kin
+medians <- colMedians(kin2, na.rm = TRUE)
+sd <- colSds(kin2, na.rm = TRUE)
+kin.center <- scale(kin2, center = medians, scale = FALSE)
+kin.scale <- scale(kin2, center = medians, scale = sd)
+
+kin2<-kin2[rowSums(is.na(kin))<8,]
+
+
 pdf("kinome-mini-half.pdf", height = 15)
-pheatmap(kin2, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 3)
+pheatmap(kin2, border_color = NA, fontsize_row = 3, cellheight = 1.5, na_col = "grey", fontsize_col = 15)
 dev.off()
 
 pdf("kinome-zoom-half.pdf", height = 20)
-pheatmap(kin2, color = viridis(1000, direction = 1, option = "D"), border_color = NA, fontsize_row = 5,
-         fontsize_col = 5, cellwidth = 5, cellheight = 5, height = 11)
+pheatmap(kin2, border_color = NA, fontsize_row = 5,
+         fontsize_col = 5, cellwidth = 5, cellheight = 5, height = 11, na_col = "grey")
 dev.off()
+
+
 
 ##setting to 0 doesn't produce good results
 kin3 <- kin
