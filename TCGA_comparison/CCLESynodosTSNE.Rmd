@@ -1,0 +1,228 @@
+---
+output:
+  pdf_document: 
+    fig_height: 6
+    fig_width: 8
+  html_document: default
+---
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(data.table)
+library(plyr)
+library(dplyr)
+library(synapseClient)
+library(ggplot2)
+library(tibble)
+library(parallel)
+library(biomaRt)
+library(Rtsne.multicore)
+
+synapseLogin()
+
+exp <-fread(synGet("syn5616092")@filePath, sep = ",", header = TRUE)
+exp$ens <- exp$V1
+exp <- dplyr::select(exp, -V1)
+
+ensembl = useMart("ensembl",dataset="hsapiens_gene_ensembl")
+bm <- getBM(attribute = c("hgnc_symbol","ensembl_gene_id"), mart = ensembl)
+colnames(bm) <- c("gene_id", "ens")
+
+exp <- inner_join(exp, bm) 
+exp <- filter(exp, gene_id!="")
+exp <- dplyr::select(exp, -ens)
+
+rsem2 <- (c("Syn.DMSO.1" = "syn5567534", "Syn1.DMSO.2" = "syn5567538","Syn5.1" = "syn5269658", "Syn5.2" = "syn5567353", "Syn6" = "syn5269682", 
+          "Syn6.DMSO.1" = "syn5567558", "HS01.1" = "syn5567197", "HS01.2" = "syn5567201",
+          "HS11.1" = "syn5567229", "HS11.2" = "syn5567233"))
+
+```
+
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+synodos2<-lapply(rsem2, function(i){
+  x <- synGet(i)
+  y <- read.table(x@filePath, header = TRUE)
+  z <- y %>% select(gene_id, TPM)
+  colnames(z) <- c("gene_id", sub(".txt.genes", "", x@annotations@annotations@stringAnnotations$specimenID))
+  return(z)
+  })
+
+
+synodos.all <- synodos2 %>% Reduce(function(dtf1,dtf2)
+  full_join(dtf1,dtf2,by="gene_id"), .)
+colnames(synodos.all) <- gsub("\\-", "\\.", colnames(synodos.all))
+
+all <- inner_join(synodos.all, exp)  
+all<-aggregate(all[,-1],list(all$gene_id),mean)
+rownames(all) <- all$Group.1
+all <- dplyr::select(all, -Group.1)
+
+all.rank<-apply(t(all),1,rank,ties.method='min')
+
+```
+
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+##get colors
+abr <- read.table(synGet("syn7112975")@filePath, header = TRUE, sep = "\t", comment.char = "", quote = "")
+colnames(abr)[2] <- "sample"
+abr$sample <- make.names(abr$sample)
+
+samples <- as.data.frame(colnames(exp)[-1])
+colnames(samples)[1] <- "sample"
+
+samples<-full_join(samples,abr) %>% select(sample, Site.Primary)
+
+ccle_colors <- tribble(
+    ~Color, ~Site.Primary,
+    "#ED2891", "breast",
+    "#B2509E", "central_nervous_system",
+    "#D49DC7", "autonomic_ganglia",
+    "#E8C51D", "prostate",
+    "#F9ED32", "thyroid",
+    "#104A7F", "biliary_tract",
+    "#9EDDF9", "large_intestine",
+    "#007EB5", "oesophagus",
+    "#CACCDB", "liver",
+    "#6E7BA2", "pancreas",
+    "#00AEEF", "stomach",
+    "#F6B667", "small_intestine",
+    "#D97D25", "ovary",
+    "#FBE3C7", "endometrium",
+    "#F89420", "urinary_tract",
+    "#754C29", "haematopoietic_and_lymphoid_tissue",
+    "#BBD642", "skin",
+    "#00A99D", "soft_tissue",
+    "#D3C3E0", "lung",
+    "#A084BD", "upper_aerodigestive_tract",
+    "#542C88", "pleura",
+    "#ED1C24", "kidney",
+    "#EA7075", "salivary_gland",
+    "#7E1918", "bone",
+    "#BE1E2D", "NA"
+)
+
+ccle_colors <- inner_join(samples, ccle_colors) %>% filter(!is.na(sample))
+colorBy<-ccle_colors
+names <- colorBy$sample
+colorBy <- dplyr::select(colorBy, Color)
+colorBy <- colorBy$Color
+names(colorBy) <- names
+```
+##t-SNE colored by cancer
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(30)
+tsne_out <- Rtsne.multicore(t(all.rank))
+
+df <- as.data.frame(tsne_out$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggrepel)
+
+p <- ggplot(data=df %>% filter(Site.Primary == "Synodos"), aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() +
+     scale_color_manual(values=colors2) +
+     geom_text_repel(aes(label = sample))
+
+plot(p)
+```
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(30)
+tsne_out <- Rtsne.multicore(t(all.rank), perplexity = 2)
+tsne_out2 <- Rtsne.multicore(t(all.rank), perplexity = 5)
+tsne_out3 <- Rtsne.multicore(t(all.rank), perplexity = 10)
+tsne_out4 <- Rtsne.multicore(t(all.rank), perplexity = 25)
+tsne_out5 <- Rtsne.multicore(t(all.rank), perplexity = 50)
+
+df <- as.data.frame(tsne_out$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out2$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out3$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out4$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+
+df <- as.data.frame(tsne_out5$Y)
+df$sample <- rownames(t(all.rank))
+df <- left_join(df, ccle_colors)
+df$Site.Primary[1:10] <- "Synodos"
+df$Color[1:10] <- "#00C610"
+colors <- distinct(dplyr::select(df, Site.Primary, Color))
+colors2 <- colors$Color
+names(colors2) <- colors$Site.Primary
+
+p <- ggplot(data=df, aes(x=V1,y=V2, color = Site.Primary)) + 
+     geom_point() + 
+     scale_color_manual(values=colors2) 
+
+plot(p)
+```

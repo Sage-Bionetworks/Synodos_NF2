@@ -176,7 +176,7 @@ p1 <- p1 + facet_grid(. ~ drug) + theme_bw(base_size = 15)
 p1 <- p1 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p1 <- p1 + xlab(expression(paste('concentration (log10[',mu,'M])', sep = ""))) + ylab('cell viability %')
 p1 <- p1 + coord_cartesian(ylim = c(0, 125))
-p1 <- p1 + guides(color=guide_legend(title="NF2 Genotype (Mouse)"))
+p1 <- p1 + guides(color=guide_legend(title="Nf2 Genotype (Mouse)"))
 p1 <- p1 + colScale
 p1 <- p1 + scale_linetype_manual(values=c("solid", "dotted"))
 p1
@@ -338,7 +338,7 @@ p6 <- p6 + geom_line(data = comp_2_drugResp, aes(x = fittedX+6, y = fittedY*100,
 p6 <- p6 + facet_wrap( ~ drug, ncol = 4) + theme_bw(base_size = 14) + theme(legend.position=c(0.85,0.08))
 p6 <- p6 + geom_hline(aes(yintercept=50), color='grey50', linetype='dashed')
 p6 <- p6 + xlab(expression(paste('concentration (log10[',mu,'M])', sep =""))) + ylab('cell viability %')
-p6 <- p6 + guides(color=guide_legend(title="NF2 Genotype (Mouse)"))
+p6 <- p6 + guides(color=guide_legend(title="Nf2 Genotype (Mouse)"))
 p6 <- p6 + theme(legend.position = "bottom")
 p6 <- p6 + colScale
 p6

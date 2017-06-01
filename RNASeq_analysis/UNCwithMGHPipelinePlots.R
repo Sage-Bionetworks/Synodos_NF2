@@ -4,17 +4,31 @@ library(dplyr)
 library(ggplot2)
 library(viridis)
 library(ggrepel)
-files<-dir(path = "../UNC_edgeR/degenes")
+synapseLogin()
+
+files <- c("syn9884535", "syn9884502", "syn9884491", "syn9884548", "syn9884513",
+           "syn9884562", "syn9884524", "syn9884581", "syn9884581", "syn9884592",
+           "syn9884617")
 
 degenes<-lapply(files, function(x){
-  foo<-read.table(paste("../UNC_edgeR/degenes/",x, sep = ""), header = T)
-  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", x)
+  bar<-synGet(x)
+  foo<-read.table(bar@filePath, header = T)
+  comp <- bar@fileHandle$fileName
+  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
   foo$comparison <- c(rep(comp, nrow(foo)))
   foo$Hugo_Gene <- rownames(foo)
   foo
 })
 
 degenes <- ldply(degenes)
+
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCwithMGHPipelinePlots.R"
+write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")
+synStore(File("schwannoma_degenes_reseq_edgeR.txt", parentId="syn9884455"), 
+         used = files,
+         executed = this.file)
+
+degenes <- read.table(synGet("syn9884855")@filePath, header = TRUE, sep = "\t")
 
 for(x in unique(degenes$comparison)){
   print(x)
@@ -28,8 +42,9 @@ for(x in unique(degenes$comparison)){
     theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 8)) +
     labs(x = paste("Gene (n = ", nrow(bar2),")", sep =""), y = "log2(FC), BH<0.1", title = x) +
     coord_flip()
-  ggsave(paste("UNCDEgenePlots/",x,".png", sep = ""), height = 8, width = 5)
-  
+  ggsave(paste("UNCDEgenePlots_",x,".png", sep = ""), height = 8, width = 5)
+  synStore(File(paste("UNCDEgenePlots_",x,".png", sep = ""), parentId="syn9884859"), used = "syn9884855", executed = this.file)  
+
   bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
   
   p<-ggplot(bar3, aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
@@ -39,10 +54,9 @@ for(x in unique(degenes$comparison)){
     theme(plot.margin=unit(c(1,1,1,1), "cm"), text=element_text(size = 13)) +
     labs(x = paste("Gene (n = ", nrow(bar3),")", sep =""), y = paste("log2(FC)", nrow(bar3), "most significant"), title = x) +
     coord_flip()
-  ggsave(paste("UNCDEgenePlots/",x,"top30.png", sep = ""), height = 8, width = 5)
+  ggsave(paste("UNCDEgenePlots_",x,"top30.png", sep = ""), height = 8, width = 5)
+  synStore(File(paste("UNCDEgenePlots_",x,"top30.png", sep = ""), parentId="syn9884859"), used = "syn9884855", executed = this.file)  
   
-  #synStore(File(paste("UNCDEgenePlots/",x,".png", sep = ""), parentId = "syn9779338"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
-  #synStore(File(paste("UNCDEgenePlots/",x,"top30.png", sep = ""), parentId = "syn9779338"), used = syns, executed = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCSchwannRNASeq.R")
 }
 
 dat<-read.table(synGet("syn5840701")@filePath, sep = "\t", header = TRUE, comment.char = "")
@@ -54,18 +68,18 @@ sch.kin<-dat %>%
   filter(cellLine=="HS01", referenceSample=="HS11") %>%
   select(Gene, log2ratio) %>% 
   group_by(Gene) %>% 
-  summarise(mean(log2ratio)) %>%
+  dplyr::summarise(mean(log2ratio)) %>%
   arrange(desc(`mean(log2ratio)`))
 
 colnames(sch.kin) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
 
-bar <- filter(samples2, comparison=="HS01.DMSO-HS11.DMSO") %>% select(Hugo_Gene, log2FoldChange, padj) %>% inner_join(sch.kin)
+bar <- filter(degenes, comparison=="HS01DMSOvsHS11DMSO") %>% select(Hugo_Gene, logFC, BH) %>% inner_join(sch.kin)
 
-ggplot(bar, aes(y = log2FoldChange, x = Mean_Kinome_Ratio)) +
+ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
   geom_point() +
-  geom_point(data = bar %>% filter(padj<=0.1)) +
-  geom_label_repel(data = bar %>% filter(abs(log2FoldChange)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
-                   aes(label = Hugo_Gene, fill = padj<0.1)) +
+  geom_point(data = bar %>% filter(BH<=0.1)) +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
+                   aes(label = Hugo_Gene, fill = BH<0.1)) +
   scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0))
@@ -73,20 +87,20 @@ ggplot(bar, aes(y = log2FoldChange, x = Mean_Kinome_Ratio)) +
 #HS01 - HS11 tx
 sch.kin.cudc<-sch.kin.tx %>% 
   filter(drug == "CUDC") %>%
-  select(Gene, log2ratio) %>% 
-  group_by(Gene) %>% 
-  summarise(mean(log2ratio)) %>%
+  select(protein, log2ratio) %>% 
+  group_by(protein) %>% 
+  dplyr::summarise(mean(log2ratio)) %>%
   arrange(desc(`mean(log2ratio)`))
 
-colnames(sch.kin) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
+colnames(sch.kin.cudc) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
 
-bar <- filter(samples2, comparison=="HS01.DMSO-HS11.DMSO") %>% select(Hugo_Gene, log2FoldChange, padj) %>% right_join(sch.kin)
+bar <- filter(degenes, comparison=="HS01DMSOvsHS11DMSO") %>% select(Hugo_Gene, logFC, BH) %>% inner_join(sch.kin)
 
-ggplot(bar, aes(y = log2FoldChange, x = Mean_Kinome_Ratio)) +
+ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
   geom_point() +
-  geom_point(data = bar %>% filter(padj<=0.1)) +
-  geom_label_repel(data = bar %>% filter(abs(log2FoldChange)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
-                   aes(label = Hugo_Gene, fill = padj<0.1)) +
+  geom_point(data = bar %>% filter(BH<=0.1)) +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
+                   aes(label = Hugo_Gene, fill = BH<0.1)) +
   scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0))

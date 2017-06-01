@@ -6,15 +6,17 @@ library(edgeR)
 library(gap)
 library(ggplot2)
 library(dplyr)
+library(synapseClient)
+synapseLogin()
 
 ##### INPUT FILES AND PARAMETERS ####
 
-batch1 <- "salmon_summary.human.csv_genes.txt"
+batch1 <- synGet("syn9779230")@filePath
 
 readthreshold<-20
 filter_short_genes<-"y"
 
-shortGeneFile<-"humanGRCh37_71_ERCC_shortgenes_tRNArRNA.txt"
+shortGeneFile<- synGet("syn9884664")@filePath
 
 table1 <- read.table(file=batch1, header = F, sep = "\t", colClasses = c("character", rep("numeric", 26)), skip = 1)
 samp <- read.table(file=batch1, header = F, sep = "\t", colClasses = c("character"))[1,]
@@ -23,31 +25,29 @@ samp[1,1] <- "gene"
 colnames(table1) <- samp
 table1 <- table1[-1,]
 mergedtables <- table1
-shortGenes<-read.table(shortGeneFile,sep="\t")
 
+shortGenes<-read.table(shortGeneFile,sep="\t")
 colnames(shortGenes)=c("ensemblID","gene","genetype")
 
-noERCC<-subset(mergedtables, !(grepl("ERCC-", mergedtables$chr)))
-noShortGenes<-subset(noERCC,!(noERCC$gene %in% shortGenes$gene))
+#noERCC<-subset(mergedtables, !(grepl("ERCC-", mergedtables$chr)))
+noShortGenes<-subset(mergedtables,!(mergedtables$gene %in% shortGenes$gene))
 if (filter_short_genes == "y") {
   noERCC<-noShortGenes
 }
 
 
 rownames(noERCC) <- noERCC$gene
-noERCC <- noERCC[,-c(1:4)]
+noERCC <- noERCC[,-c(1)]
 
 ##### comparisons in Table2 
 ##### selecting 36 samples
 
-counttable2 <- table1
-rownames(counttable2)<-table1$gene
-counttable2<-counttable2[,-1]
+counttable2 <- noERCC
 
-groupbatch1 = factor(c(1,1,1,2,2,2,3,3,3,4,4,4,4,5,5,5,5,6,6,6,7,7,7,8,8,8))
+##9 is HS01_DMSO_Run2_S1 - did not pass qc, so did not include
+groupbatch1 = factor(c(1,1,1,2,2,2,3,3,3,4,4,4,4,5,9,5,5,6,6,6,7,7,7,8,8,8))
 
 edgeRDEanalysis <- function(countdata,group,control,treatment,prefix,DEcontrast,readthreshold){
-
 keep <- ((rowSums(countdata[,control] > readthreshold) == length(control) ) |  (rowSums(countdata[,treatment] > readthreshold) == length(treatment)))
 cat(paste("Analyzing:",prefix,"\n",sep=""))
 print(colnames(countdata[,control]))
@@ -132,75 +132,91 @@ ggplot(data = qlf$table, aes(x=logFC, y=-log(BH))) +
   geom_point(data = qlf$table %>% filter(BH <= 0.1), aes(x=logFC, y=-log(BH)), color = "red", size = 1) +
   geom_point(data = qlf$table %>% filter(BH > 0.1), aes(x=logFC, y=-log(BH)), color = "black", size = 1)
 ggsave(paste(prefix,"_volcanoplot.png"))
+
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
+
+synStore(File(paste(prefix,"_MDplot.logcpm.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_MDSplot.logcpm.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_MDSplot.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_samplesimilarity_edgeR.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_MeanVariance.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_BCVplot.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_QLDisplot.pdf",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_edgeR_qlf_qqplot.png",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_edgeR_qlf_plotsmear.png",sep=""), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+synStore(File(paste(prefix,"_volcanoplot.png"), parentId="syn9884466"), used = "syn9779230", executed = this.file)
+
+synStore(File(paste(prefix,"_edgeR_quasilikelihoodFtest.txt",sep=""), parentId="syn9884467"), used = "syn9779230", executed = this.file)
+
 }
 
 prefix <- "HS01DMSOvsHS11DMSO"
 controlCol <- c(10,11,12,13)
-treatmentCol <- c(14,15,16,17)
-contrast = c(0,0,0,-1,1,0,0,0)
+treatmentCol <- c(14,16,17)
+contrast = c(0,0,0,-1,1,0,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01CUDC907vsHS11CUDC907"
 controlCol <- c(7,8,9)
 treatmentCol <- c(18,19,20)
-contrast = c(0,0,-1,0,0,1,0,0)
+contrast = c(0,0,-1,0,0,1,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01GSK2126458vsHS11GSK2126458"
 controlCol <- c(1,2,3)
 treatmentCol <- c(21,22,23)
-contrast = c(-1,0,0,0,0,0,1,0)
+contrast = c(-1,0,0,0,0,0,1,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01panobinostatvsHS11panobinostat"
 controlCol <- c(4,5,6)
 treatmentCol <- c(24,25,26)
-contrast = c(0,-1,0,0,0,0,0,1)
+contrast = c(0,-1,0,0,0,0,0,1,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01CUDC907vsHS01DMSO"
-controlCol <- c(14,15,16,17)
+controlCol <- c(14,16,17)
 treatmentCol <- c(18,19,20)
-contrast = c(0,0,0,0,-1,1,0,0)
+contrast = c(0,0,0,0,-1,1,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01GSK2126458vsHS01DMSO"
-controlCol <- c(14,15,16,17)
+controlCol <- c(14,16,17)
 treatmentCol <- c(21,22,23)
-contrast = c(0,0,0,0,-1,0,1,0)
+contrast = c(0,0,0,0,-1,0,1,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS01panobinostatvsHS01DMSO"
-controlCol <- c(14,15,16,17)
+controlCol <- c(14,16,17)
 treatmentCol <- c(24,25,26)
-contrast = c(0,0,0,0,-1,0,0,1)
+contrast = c(0,0,0,0,-1,0,0,1,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS11CUDC907vsHS11DMSO"
 controlCol <- c(10,11,12,13)
 treatmentCol <- c(7,8,9)
-contrast = c(0,0,1,-1,0,0,0,0)
+contrast = c(0,0,1,-1,0,0,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS11GSK2126458vsHS11DMSO"
 controlCol <- c(10,11,12,13)
 treatmentCol <- c(1,2,3)
-contrast = c(1,0,0,-1,0,0,0,0)
+contrast = c(1,0,0,-1,0,0,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
 prefix <- "HS11panobinostatvsHS11DMSO"
 controlCol <- c(10,11,12,13)
 treatmentCol <- c(4,5,6)
-contrast = c(0,1,0,-1,0,0,0,0)
+contrast = c(0,1,0,-1,0,0,0,0,0)
 
 edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
 
