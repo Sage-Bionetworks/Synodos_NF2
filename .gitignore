@@ -35,3 +35,5 @@ FiguresNoGit/
 *.xlsx
 
 NF2_annotation.xlsx
+*.tiff
+*.log

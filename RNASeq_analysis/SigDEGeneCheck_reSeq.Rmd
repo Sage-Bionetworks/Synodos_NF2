@@ -1,0 +1,107 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, include=FALSE}
+
+library(synapseClient)
+library(dplyr)
+library(pander)
+synapseLogin()
+
+degenes.mgh<-read.table(synGet("syn6166525")@filePath, sep = "\t", header = TRUE, comment.char = "")
+degenes.unc<-read.table(synGet("syn9884855")@filePath, sep = "\t", header = TRUE, comment.char = "")
+
+###UNC Baseline
+hs01hs11.u.base <- nrow(filter(degenes.unc, comparison == 'HS01DMSOvsHS11DMSO' & BH <= 0.1))
+
+###MGH Baseline
+hs01hs11.m.base <- nrow(filter(degenes.mgh, diffExptest == 'HS01.DMSO-HS11.DMSO' & BH <= 0.1))
+
+###UNC CUDC
+hs01hs11.u.cudc <- nrow(filter(degenes.unc, comparison == 'HS01CUDC907vsHS11CUDC907' & BH <= 0.1))
+
+###MGH CUDC
+hs01hs11.m.cudc <- nrow(filter(degenes.mgh, diffExptest == 'HS01.CUDC907-HS11.CUDC907' & BH <= 0.1))
+
+###UNC GSK
+hs01hs11.u.gsk <- nrow(filter(degenes.unc, comparison == 'HS01GSK2126458vsHS11GSK2126458' & BH <= 0.1))
+
+###MGH GSK
+hs01hs11.m.gsk <- nrow(filter(degenes.mgh, diffExptest == 'HS01.GSK2126458-HS11.GSK2126458' & BH <= 0.1))
+
+###UNC Pano
+hs01hs11.u.pano <- nrow(filter(degenes.unc, comparison == 'HS01panobinostatvsHS11panobinostat' & BH <= 0.1))
+
+###MGH Pano
+hs01hs11.m.pano <- nrow(filter(degenes.mgh, diffExptest == 'HS01.Panobinostat-HS11.Panobinostat' & BH <= 0.1))
+
+
+####tables
+mgh<-matrix(c(hs01hs11.m.base, hs01hs11.m.cudc, hs01hs11.m.gsk, hs01hs11.m.pano,
+              hs01hs11.u.base, hs01hs11.u.cudc, hs01hs11.u.gsk, hs01hs11.u.pano), nrow = 2, ncol = 4, byrow=TRUE) 
+rownames(mgh) <- c("HS01-HS11 MGH", "HS01-HS11 UNC")
+colnames(mgh) <- c("baseline", "CUDC907", "GSK2126458", "panobinostat")
+
+
+```
+
+###Significantly DE Genes, BH < 0.1 HS01-HS11
+```{r, echo=FALSE}
+pander(mgh)
+```
+
+
+```{r, include=FALSE}
+###UNC Cudc
+hs01.u.cudc <- nrow(filter(degenes.unc, comparison == 'HS01CUDC907vsHS01DMSO' & BH <= 0.1))
+
+###MGH Cudc
+hs01.m.cudc <- nrow(filter(degenes.mgh, diffExptest == 'HS01.CUDC907-HS01.DMSO' & BH <= 0.1))
+
+###UNC GSK
+hs01.u.gsk <- nrow(filter(degenes.unc, comparison == 'HS01GSK2126458vsHS01DMSO' & BH <= 0.1))
+
+###MGH GSK
+hs01.m.gsk <- nrow(filter(degenes.mgh, diffExptest == 'HS01.GSK2126458-HS01.DMSO' & BH <= 0.1))
+
+###UNC Pano
+hs01.u.pano <- nrow(filter(degenes.unc, comparison == 'HS01panobinostatvsHS01DMSO' & BH <= 0.1))
+
+###MGH Pano
+hs01.m.pano <- nrow(filter(degenes.mgh, diffExptest == 'HS01.Panobinostat-HS01.DMSO' & BH <= 0.1))
+
+###UNC Cudc HS11
+hs11.u.cudc <- nrow(filter(degenes.unc, comparison == 'HS11CUDC907vsHS11DMSO' & BH <= 0.1))
+
+###MGH Cudc HS11
+hs11.m.cudc <- nrow(filter(degenes.mgh, diffExptest == 'HS11.CUDC907-HS11.DMSO' & BH <= 0.1))
+
+###UNC GSK HS11
+hs11.u.gsk <- nrow(filter(degenes.unc, comparison == 'HS11GSK2126458vsHS11DMSO' & BH <= 0.1))
+
+###MGH GSK HS11
+hs11.m.gsk <- nrow(filter(degenes.mgh, diffExptest == 'HS11.GSK2126458-HS11.DMSO' & BH <= 0.1))
+
+###UNC Pano HS11
+hs11.u.pano <- nrow(filter(degenes.unc, comparison == 'HS11panobinostatvsHS11DMSO' & BH <= 0.1))
+
+###MGH Pano HS11
+hs11.m.pano <- nrow(filter(degenes.mgh, diffExptest == 'HS11.Panobinostat-HS11.DMSO' & BH <= 0.1))
+
+####tables
+mgh<-matrix(c(hs01.m.cudc, hs01.m.gsk, hs01.m.pano,
+              hs11.m.cudc, hs11.m.gsk, hs11.m.pano,
+              hs01.u.cudc, hs01.u.gsk, hs01.u.pano,
+              hs11.u.cudc, hs11.u.gsk, hs11.u.pano), nrow = 4, ncol = 3, byrow=TRUE) 
+rownames(mgh) <- c("HS01 MGH", "HS11 MGH", "HS01 UNC", "HS11 UNC")
+colnames(mgh) <- c("CUDC907", "GSK2126458", "panobinostat")
+
+
+```
+
+###Significantly DE Genes, BH < 0.1 Across Drugs
+```{r, echo=FALSE}
+pander(mgh)
+```

@@ -1,33 +1,38 @@
 library(synapseClient)
 library(plyr)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(viridis)
-library(ggrepel)
+library(pheatmap)
+library(VennDiagram)
 synapseLogin()
 
+##for merged table 
+
 files <- c("syn9884535", "syn9884502", "syn9884491", "syn9884548", "syn9884513",
-           "syn9884562", "syn9884524", "syn9884581", "syn9884581", "syn9884592",
-           "syn9884617")
+           "syn9884562", "syn9884524", "syn9884581", "syn9884592", "syn9884617")
 
-degenes<-lapply(files, function(x){
-  bar<-synGet(x)
-  foo<-read.table(bar@filePath, header = T)
-  comp <- bar@fileHandle$fileName
-  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
-  foo$comparison <- c(rep(comp, nrow(foo)))
-  foo$Hugo_Gene <- rownames(foo)
-  foo
-})
+#degenes<-lapply(files, function(x){
+#  bar<-synGet(x)
+#  foo<-read.table(bar@filePath, header = T)
+#  comp <- bar@fileHandle$fileName
+#  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
+#  foo$comparison <- c(rep(comp, nrow(foo)))
+#  foo$Hugo_Gene <- rownames(foo)
+#  foo
+#})
 
-degenes <- ldply(degenes)
+#degenes <- ldply(degenes)
 
 this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCwithMGHPipelinePlots.R"
-write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")
-synStore(File("schwannoma_degenes_reseq_edgeR.txt", parentId="syn9884455"), 
-         used = files,
-         executed = this.file)
 
+#write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")
+#synStore(File("schwannoma_degenes_reseq_edgeR.txt", parentId="syn9884455"), 
+#         used = files,
+#         executed = this.file)
+
+##merged table is on synapse
 degenes <- read.table(synGet("syn9884855")@filePath, header = TRUE, sep = "\t")
 
 for(x in unique(degenes$comparison)){
@@ -59,49 +64,134 @@ for(x in unique(degenes$comparison)){
   
 }
 
-dat<-read.table(synGet("syn5840701")@filePath, sep = "\t", header = TRUE, comment.char = "")
-kinome <- read.table(synGet("syn4975368")@filePath, sep = "\t", header = TRUE)
-sch.kin.tx <- kinome %>% filter(cellLine1 == "HS01" & cellLine2 == "HS11" & pval_adj < 0.05 & time1 == "24h" & time2 == "24h")
 
-#HS01 - HS11 baseline
-sch.kin<-dat %>% 
-  filter(cellLine=="HS01", referenceSample=="HS11") %>%
-  select(Gene, log2ratio) %>% 
-  group_by(Gene) %>% 
-  dplyr::summarise(mean(log2ratio)) %>%
-  arrange(desc(`mean(log2ratio)`))
 
-colnames(sch.kin) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
+##top30 heatmap
 
-bar <- filter(degenes, comparison=="HS01DMSOvsHS11DMSO") %>% select(Hugo_Gene, logFC, BH) %>% inner_join(sch.kin)
+top20 <- degenes %>%   
+  filter(comparison %in% c("HS01DMSOvsHS11DMSO", "HS01CUDC907vsHS11CUDC907",
+                           "HS01GSK2126458vsHS11GSK2126458", "HS01panobinostatvsHS11panobinostat")) %>% 
+  group_by(comparison) %>% 
+  top_n(20, abs(logFC))
 
-ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
-  geom_point() +
-  geom_point(data = bar %>% filter(BH<=0.1)) +
-  geom_label_repel(data = bar %>% filter(abs(logFC)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
-                   aes(label = Hugo_Gene, fill = BH<0.1)) +
-  scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
-  geom_hline(aes(yintercept = 0)) + 
-  geom_vline(aes(xintercept = 0))
+top.genes <- degenes %>% 
+  filter(comparison %in% c("HS01DMSOvsHS11DMSO", "HS01CUDC907vsHS11CUDC907",
+                           "HS01GSK2126458vsHS11GSK2126458", "HS01panobinostatvsHS11panobinostat")) %>% 
+  filter(Hugo_Gene %in% c(unique(top20$Hugo_Gene))) %>% 
+  select(logFC, comparison, Hugo_Gene) %>% 
+  spread(comparison, logFC)
 
-#HS01 - HS11 tx
-sch.kin.cudc<-sch.kin.tx %>% 
-  filter(drug == "CUDC") %>%
-  select(protein, log2ratio) %>% 
-  group_by(protein) %>% 
-  dplyr::summarise(mean(log2ratio)) %>%
-  arrange(desc(`mean(log2ratio)`))
+rownames(top.genes) <- top.genes$Hugo_Gene
+top.genes <- top.genes[,-1]
+pdf("top-genes.pdf", height = 20)
+pheatmap(top.genes, cellwidth = 10, cellheight = 10, cluster_rows = FALSE)
+dev.off()
+##venn diagram
 
-colnames(sch.kin.cudc) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
+sig.genes <- degenes %>% filter(BH<0.1 & logFC>1)
 
-bar <- filter(degenes, comparison=="HS01DMSOvsHS11DMSO") %>% select(Hugo_Gene, logFC, BH) %>% inner_join(sch.kin)
+HS01.HS11.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS11CUDC907") %>% 
+  select(Hugo_Gene)
+HS01.HS11.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS11GSK2126458") %>% 
+  select(Hugo_Gene)
+HS01.HS11.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS11panobinostat") %>% 
+  select(Hugo_Gene)
 
-ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
-  geom_point() +
-  geom_point(data = bar %>% filter(BH<=0.1)) +
-  geom_label_repel(data = bar %>% filter(abs(logFC)>0.5 | abs(Mean_Kinome_Ratio)>0.25), 
-                   aes(label = Hugo_Gene, fill = BH<0.1)) +
-  scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
-  geom_hline(aes(yintercept = 0)) + 
-  geom_vline(aes(xintercept = 0))
+list <- as.list(c(HS01.HS11.CUDC, HS01.HS11.GSK, HS01.HS11.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_hs11_venn_up_noDMSO.tiff", col = "red", fill = "red", label.col = "darkred", alpha = 0.25)
+
+HS01.HS11.DMSO <- sig.genes %>% filter(comparison == "HS01DMSOvsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS11.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS11CUDC907") %>% 
+  select(Hugo_Gene)
+HS01.HS11.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS11GSK2126458") %>% 
+  select(Hugo_Gene)
+HS01.HS11.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS11panobinostat") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS01.HS11.DMSO, HS01.HS11.CUDC, HS01.HS11.GSK, HS01.HS11.PANO))
+names(list) <- c("DMSO", "CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_hs11_venn_up.tiff", col = "red", fill = "red", label.col = "darkred", alpha = 0.25)
+
+HS01.HS01.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS01DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS01.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS01DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS01.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS01DMSO") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS01.HS01.CUDC, HS01.HS01.GSK, HS01.HS01.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_bydrug_venn_up.tiff", col = "red", fill = "red", label.col = "darkred", alpha = 0.25)
+
+HS11.HS11.CUDC <- sig.genes %>% filter(comparison == "HS11CUDC907vsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS11.HS11.GSK <- sig.genes %>% filter(comparison == "HS11GSK2126458vsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS11.HS11.PANO <- sig.genes %>% filter(comparison == "HS11panobinostatvsHS11DMSO") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS11.HS11.CUDC, HS11.HS11.GSK, HS11.HS11.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs11_bydrug_venn_up.tiff", col = "red", fill = "red", label.col = "darkred", alpha = 0.25)
+
+
+sig.genes <- degenes %>% filter(BH<0.1 & logFC<=-1)
+
+HS01.HS11.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS11CUDC907") %>% 
+  select(Hugo_Gene)
+HS01.HS11.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS11GSK2126458") %>% 
+  select(Hugo_Gene)
+HS01.HS11.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS11panobinostat") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS01.HS11.CUDC, HS01.HS11.GSK, HS01.HS11.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_hs11_venn_down_noDMSO.tiff", col = "blue", fill = "blue", label.col = "darkblue", alpha = 0.25)
+
+
+HS01.HS11.DMSO <- sig.genes %>% filter(comparison == "HS01DMSOvsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS11.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS11CUDC907") %>% 
+  select(Hugo_Gene)
+HS01.HS11.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS11GSK2126458") %>% 
+  select(Hugo_Gene)
+HS01.HS11.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS11panobinostat") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS01.HS11.DMSO, HS01.HS11.CUDC, HS01.HS11.GSK, HS01.HS11.PANO))
+names(list) <- c("DMSO", "CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_hs11_venn_down.tiff", col = "blue", fill = "blue", label.col = "darkblue", alpha = 0.25)
+
+
+HS01.HS01.CUDC <- sig.genes %>% filter(comparison == "HS01CUDC907vsHS01DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS01.GSK <- sig.genes %>% filter(comparison == "HS01GSK2126458vsHS01DMSO") %>% 
+  select(Hugo_Gene)
+HS01.HS01.PANO <- sig.genes %>% filter(comparison == "HS01panobinostatvsHS01DMSO") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS01.HS01.CUDC, HS01.HS01.GSK, HS01.HS01.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs01_bydrug_venn_down.tiff", col = "blue", fill = "blue", label.col = "darkblue", alpha = 0.25)
+
+
+HS11.HS11.CUDC <- sig.genes %>% filter(comparison == "HS11CUDC907vsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS11.HS11.GSK <- sig.genes %>% filter(comparison == "HS11GSK2126458vsHS11DMSO") %>% 
+  select(Hugo_Gene)
+HS11.HS11.PANO <- sig.genes %>% filter(comparison == "HS11panobinostatvsHS11DMSO") %>% 
+  select(Hugo_Gene)
+
+list <- as.list(c(HS11.HS11.CUDC, HS11.HS11.GSK, HS11.HS11.PANO))
+names(list) <- c("CUDC907", "GSK2126458", "Panobinostat")
+venn.diagram(list, "hs11_bydrug_venn_down.tiff", col = "blue", fill = "blue", label.col = "darkblue", alpha = 0.25)
+
+for(x in unique(degenes$comparison)){
+  p <- filter(degenes, comparison == x & BH<0.1 & abs(logFC)>1)
+  write.table(p, paste(x,"_degenes.txt", sep = ""), sep = "\t", quote = FALSE, row.names = FALSE)
+}
+
+
 

@@ -1,5 +1,6 @@
 library(synapseClient)
 library(dplyr)
+library(ggplot2)
 library(biomaRt)
 synapseLogin()
 
@@ -43,6 +44,20 @@ mat <- dat %>%
 
 mat$ensembl <- gsub("\\..+$","",mat$ensembl)
 
+###plot failed counts
+
+counts<-rbind(c("total",colSums(mat[,2:27])),mat[58175:58179,])
+rownames(counts) <- counts[,1]
+counts <- as.data.frame(t(counts[,-1]))
+names <- rownames(counts)
+counts<- data.frame(apply(counts, 2, function(x) as.numeric(as.character(x))))
+counts$sample<-names
+ggplot(counts, aes(x=sample, y =X__no_feature/total*100)) +
+  geom_bar(stat = "identity") +
+  labs(x = "sample", y = "no feature (%)") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+ggsave("no_feature_percentage.png", width = 8, height = 5)
+
 mart <- useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl")
 results <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"),
                  mart = mart)
@@ -55,4 +70,7 @@ mat <- cbind(hugo_gene, mat[2:27])
 mat <- aggregate(. ~ hugo_gene, data = mat, sum)
 mat <- filter(mat, hugo_gene != "")
 
-write.table
+write.table(mat, "schwannoma_reseq_raw_counts.txt", sep = "\t")
+
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCExpressionMatrix.R"
+synStore(File("schwannoma_reseq_raw_counts.txt", parentId = "syn9925306"), used = files, executed = this.file)

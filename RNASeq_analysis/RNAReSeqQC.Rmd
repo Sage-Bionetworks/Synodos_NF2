@@ -1,0 +1,43 @@
+---
+title: "RNA ReSeq QC"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include=FALSE}
+library(synapseClient)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+synapseLogin()
+
+##counts and %mapped from bams using samtools
+qc<- read.table(synGet("syn9904189")@filePath, sep = "\t", header = TRUE, colClasses = c("factor", "numeric", "numeric"))
+```
+
+```{r, echo=FALSE, fig.height= 6, fig.width=6}
+library(scales)
+ggplot(data = qc, aes(x=run, y=reads)) +
+  geom_bar(stat="identity") +
+  labs(x="Run", y="Read Count") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  scale_y_continuous(labels = comma)
+ggsave("UNC_reseq_readcount.png", height=6,width =6)
+```
+##
+```{r, echo=FALSE, fig.height= 6, fig.width=6}
+ggplot(data = qc, aes(x=run, y=perc.map)) +
+  geom_bar(stat="identity") +
+  labs(x="Run", y="Percent Mapped (%)") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+ggsave("UNC_reseq_percentmapped.png", height=6,width =6)
+```
+
+```{r, echo=FALSE, fig.height= 6, fig.width=8.5}
+norm.counts<-read.table(synGet("syn9926791")@filePath, sep = "\t", header = TRUE)
+clust<-hclust(dist(t(norm.counts)))
+plot(clust)
+
+```
+

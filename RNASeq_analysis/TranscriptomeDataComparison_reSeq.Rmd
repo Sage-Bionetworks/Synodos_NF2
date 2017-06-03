@@ -1,0 +1,123 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, include=FALSE}
+library(synapseClient)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+synapseLogin()
+
+theme_update(plot.title = element_text(hjust = 0.5))
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+mgh<-read.table(synGet("syn6166525")@filePath, sep = "\t", header = TRUE, comment.char = "")
+mgh <- separate(mgh,geneName, into=c("gene", "ens"), sep ="\\|")
+m.dmso <- filter(mgh, diffExptest == "HS01.DMSO-HS11.DMSO")  
+m.cudc <- filter(mgh, diffExptest == "HS01.CUDC907-HS11.CUDC907") 
+m.gsk <- filter(mgh, diffExptest == "HS01.GSK2126458-HS11.GSK2126458") 
+m.pano <- filter(mgh, diffExptest == "HS01.Panobinostat-HS11.Panobinostat") 
+
+unc<-read.table(synGet("syn9884855")@filePath, sep = "\t", header = TRUE, comment.char = "")
+names(unc)[1] <- "logFC.unc"
+names(unc)[8] <- "gene"
+g.dmso <- filter(unc, comparison == "HS01DMSOvsHS11DMSO")
+g.cudc <- filter(unc, comparison == "HS01CUDC907vsHS11CUDC907")
+g.gsk <- filter(unc, comparison == "HS01GSK2126458vsHS11GSK2126458")
+g.pano <- filter(unc, comparison == "HS01panobinostatvsHS11panobinostat")
+
+dmso <- full_join(select(g.dmso, gene,logFC.unc), select(m.dmso, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = dmso))
+summary(lm(logFC.unc ~ logFC, data = dmso))
+cor(select(inner_join(select(g.dmso, gene,logFC.unc), select(m.dmso, gene, logFC)), logFC, logFC.unc) , method = "spearman")
+
+cudc <- full_join(select(g.cudc, gene,logFC.unc), select(m.cudc, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = cudc))
+summary(lm(logFC.unc ~ logFC, data = cudc))
+cor(select(inner_join(select(g.cudc, gene,logFC.unc), select(m.cudc, gene, logFC)), logFC, logFC.unc) , method = "spearman")
+
+gsk <- full_join(select(g.gsk, gene,logFC.unc), select(m.gsk, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = gsk))
+summary(lm(logFC.unc ~ logFC, data = gsk))
+cor(select(inner_join(select(g.gsk, gene,logFC.unc), select(m.gsk, gene, logFC)), logFC, logFC.unc) , method = "spearman")
+
+pano <- full_join(select(g.pano, gene,logFC.unc), select(m.pano, gene, logFC)) %>%  filter(!is.na(logFC) & !is.na(logFC.unc))
+coef(lm(logFC.unc ~ logFC, data = pano))
+summary(lm(logFC.unc ~ logFC, data = pano))
+cor(select(inner_join(select(g.pano, gene,logFC.unc), select(m.pano, gene, logFC)), logFC, logFC.unc) , method = "spearman")
+```
+
+```{r, fig.height=6, fig.width=8.5, message=FALSE, warning=FALSE, include=FALSE}
+syn<-read.table(synGet("syn6045994")@filePath,sep="\t",header=T)
+
+syn<-separate(syn,gene,sep="\\|",c("gene","ensembl"))%>%dplyr::select(gene,HS01.1_DMSO, HS01.2_DMSO, HS11.1_DMSO, HS11.2_DMSO)
+
+##schwannoma raw counts (unc)
+hs<-read.table(synGet("syn9925491")@filePath,sep="\t",header=T)
+colnames(hs)[1]<-"gene"
+
+  
+all<-inner_join(hs,syn)
+all <- all %>% 
+  mutate(mean.cnt.HS01.unc = (HS01_DMSO_Run1_S1+HS01_DMSO_Run2_S1+HS01_DMSO_Run3_S1+HS01_DMSO_Run4_S9)/4) %>% 
+  mutate(mean.cnt.HS11.unc = (HS11_DMSO_Run1_S5+HS11_DMSO_Run2_S5+HS11_DMSO_Run3_S5+HS11_DMSO_Run4_S9)/4) %>%
+  mutate(mean.cnt.HS01.mgh = (HS01.1_DMSO+HS01.2_DMSO)/2) %>%
+  mutate(mean.cnt.HS11.mgh = (HS11.1_DMSO+HS11.2_DMSO)/2)
+
+
+```
+
+### DMSO Counts Density - HS01, red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warning=FALSE, warnings=FALSE}
+ggplot(all, aes(x = log(mean.cnt.HS01.unc))) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(aes(x = log(mean.cnt.HS01.mgh)),  fill = "red", alpha = 0.5) + 
+  labs(title = "HS01 DMSO", x = "log(count)", y = "density")
+```
+
+### DMSO Counts Density - HS11, red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warning=FALSE, warnings=FALSE}
+ggplot(all, aes(x = log(mean.cnt.HS11.unc))) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(aes(x = log(mean.cnt.HS11.mgh)),  fill = "red", alpha = 0.5) + 
+  labs(title = "HS11 DMSO", x = "log(count)", y = "density")
+```
+
+###Log FC Density, MGH vs UNC (DMSO), red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warnings=FALSE}
+ggplot(g.dmso, aes(x = logFC.unc)) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(data = m.dmso, aes(x = logFC,  fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (DMSO)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+
+###Log FC Density, MGH vs UNC (CUDC), red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warning=FALSE, warnings=FALSE}
+ggplot(g.cudc, aes(x = logFC.unc)) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(data = m.cudc, aes(x = logFC,  fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (CUDC)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+
+###Log FC Density, MGH vs UNC (GSK), red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warning=FALSE, warnings=FALSE}
+ggplot(g.gsk, aes(x = logFC.unc)) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(data = m.gsk, aes(x = logFC,  fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (GSK)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
+
+###Log FC Density, MGH vs UNC (PANO), red=UNC blue=MGH
+```{r, echo=FALSE, message=FALSE, warning=FALSE, warnings=FALSE}
+ggplot(g.pano, aes(x = logFC.unc)) +
+  geom_density( fill = "blue", alpha = 0.5) +
+  geom_density(data = m.pano, aes(x = logFC,  fill = "red", alpha = 0.5))  + 
+  labs(title = "LogFC MGH vs UNC (PANO)", x = "log(FC)", y = "density") +
+  theme(legend.position= "none")
+```
