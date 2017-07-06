@@ -3,11 +3,10 @@ title: "CellLines"
 header-includes: \pagenumbering{gobble}
 fontsize: 10pt
 output:
-  pdf_document:
+  pdf_document: 
     latex_engine: xelatex
   html_document: default
 geometry: landscape
-
 ---
 
 
@@ -21,6 +20,8 @@ library(dplyr)
 tbl<-read.table("cellLines.csv", sep = ",", header = TRUE)
 colnames(tbl) <- c("Cell Line", "Organism", "Type", "Grade", "NF2 Status")
 tbl<- filter(tbl, `Cell Line` != "Syn13", `Cell Line` != "Syn14" )
+tbl<- filter(tbl, `Cell Line` != "Syn13", `Cell Line` != "Syn14" )
+
 pander(tbl)
 ```
 
@@ -28,5 +29,5 @@ pander(tbl)
 \pagebreak
 ```{r table2, echo=FALSE, results='asis'}
 tbl<-read.table("Table2.txt", sep = "\t", header = TRUE)
-pander(tbl, op)
+pander(tbl)
 ```

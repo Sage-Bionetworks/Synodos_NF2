@@ -1,12 +1,12 @@
 ---
 title: "Synodos NF2 - drug screen metadata analysis"
 output:
-  html_document:
+  pdf_document:
     toc: yes
   html_notebook:
     code_folding: hide
     toc: yes
-  pdf_document:
+  html_document:
     toc: yes
 ---
 
@@ -23,11 +23,30 @@ library(stargazer)
 
 
 synapseLogin()
+##commented is old version - new version is comparing matched AUC (accounting for different doses used)
+#d <- synGet("syn6138226")@filePath
+#d <- read.table(file=d, sep = "\t", header = TRUE, fill = TRUE) %>%
+#  select(-X, -trapezoid, -stdErr, -stage, -experiment) %>%
+#  mutate(cellLine = as.character(cellLine))
+#md <- synTableQuery("select * from syn3275123")@values
+#md <- md[,c('ID','organism', 'NF2 Status')]
+#colnames(md) <- c('cellLine','organism', 'NF2Status')
+#d$cellLine[d$cellLine == 'MSC11'] = 'MS11'
+#d <- merge(d, md)
+#d$NF2Status[d$cellLine %in% c('HS01', 'MS01', 'MS02', 'MS03')] = 'negative'
+#d$NF2Status[d$cellLine %in% c('HS11', 'MS11', 'MS12')] = 'positive'
+#d$tumorType = NA
+#d$tumorType[d$center == 'UCF'] = 'schwannoma'
+#d$tumorType[d$center == 'MGH'] = 'meningioma'
 
-d <- synGet("syn6138226")@filePath
-d <- read.table(file=d, sep = "\t", header = TRUE, fill = TRUE) %>%
-  select(-X, -trapezoid, -stdErr, -stage, -experiment) %>%
-  mutate(cellLine = as.character(cellLine))
+commondrugs<-c("GDC0941", "Vorinostat", "Axitinib", "Panobinostat", "Bortezomib", "CUDC907", "Everolimus", "AR42", "AZD2014", "GDC0980", "Ganetespib", "GSK2126458")
+
+sch<-read.table(synGet("syn10163109")@filePath, sep = "\t")
+men<-read.table(synGet("syn10163111")@filePath, sep = "\t")
+colnames(men)[colnames(men)=="matchedAUC"] <- "Simpson"
+
+d <- rbind(sch, men) %>% mutate(cellLine = as.character(cellLine))
+
 md <- synTableQuery("select * from syn3275123")@values
 md <- md[,c('ID','organism', 'NF2 Status')]
 colnames(md) <- c('cellLine','organism', 'NF2Status')
@@ -36,11 +55,10 @@ d <- merge(d, md)
 d$NF2Status[d$cellLine %in% c('HS01', 'MS01', 'MS02', 'MS03')] = 'negative'
 d$NF2Status[d$cellLine %in% c('HS11', 'MS11', 'MS12')] = 'positive'
 d$tumorType = NA
-d$tumorType[d$center == 'UCF'] = 'schwannoma'
-d$tumorType[d$center == 'MGH'] = 'meningioma'
+d$tumorType[grep('Syn.+', d$cellLine)] = 'meningioma'
+d$tumorType[is.na(d$tumorType)] = 'schwannoma'
 
-commondrugs<-c("GDC0941", "Vorinostat", "Axitinib", "Panobinostat", "Bortezomib", "CUDC907", "Everolimus", "AR42", "AZD2014", "GDC0980", "Ganetespib", "GSK2126458")
-
+colnames(d)[colnames(d)=="avgIC50"] <- "IC50"
 ```
 
 ##Effect of Tumor Type and NF2 status on drug response. 
@@ -59,8 +77,8 @@ We also modeled IC50 and maximum efficacy as a function of NF2 genotype, tumor t
 d1<-filter(d, drug %in% commondrugs)
 
 modelAUC <- lm(Simpson ~ tumorType + NF2Status + drug + organism, data=d1)
-modelMaxEfficacy <- lm(maxEfficacy ~ tumorType + NF2Status + drug + organism, data=d1)
-modelIC50 <- lm(log10(IC50) ~ tumorType + NF2Status + drug + organism, data=d1)
+#modelMaxEfficacy <- lm(maxEfficacy ~ tumorType + NF2Status + drug + organism, data=d1)
+#modelIC50 <- lm(log10(IC50) ~ tumorType + NF2Status + drug + organism, data=d1)
 sjp.setTheme(base = theme_gray(), title.align = "center")
 
 sjp.lm(fit = modelAUC, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.values = FALSE)
@@ -76,7 +94,7 @@ lmtable <-sjt.lm(modelAUC)
 ###Table 1: Linear model values.
 
 ```{r, results='asis', eval=F, echo=F}
-stargazer(modelAUC, modelMaxEfficacy, header=FALSE, type='latex')
+stargazer(modelAUC, header=FALSE, type='latex')
 ```
 
 <center>
@@ -146,13 +164,13 @@ When plotting AUC, **the cell lines cluster most strongly by tumor type**, with 
 
 wes<-wes_palette("Zissou", 1000 , type="continuous")
 averaged.simp <- aggregate(d$Simpson, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
-metadata <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
+metadata <- unique(select(d, cellLine, drug, organism, NF2Status, tumorType))
 averaged.simp <- full_join(averaged.simp, metadata, by = c("drug", "cellLine"))
 simp.m <- spread(averaged.simp, drug, x)
 rownames(simp.m) <- simp.m$cellLine
 simp.overlap <- as.matrix(simp.m %>% select(GDC0941, Vorinostat, Axitinib, Panobinostat, Bortezomib, CUDC907, Everolimus, AR42, AZD2014, GDC0980, Ganetespib, GSK2126458))
 metadata <- simp.m[,1:5]
-simp.m <- as.matrix(simp.m[,6:24])
+simp.m <- as.matrix(simp.m[,6:23])
 
 ### drug target annotations
 drug.annot<-synTableQuery("SELECT * FROM syn8228169")@values
@@ -174,7 +192,7 @@ pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metada
 #####The schwannoma cell lines were tested against a broader panel of small molecules, the responses of which are plotted here. The cell lines cluster #####by organism. Clustering of the drugs by target/pathway type is less evident in this analysis.
 
 averaged.ic50 <- aggregate(d$IC50, by=list(cellLine=d$cellLine, drug=d$drug), data=d, FUN=mean)
-metadata2 <- unique(select(d, cellLine, center, drug, organism, NF2Status, tumorType))
+metadata2 <- unique(select(d, cellLine, drug, organism, NF2Status, tumorType))
 averaged.ic50 <- full_join(averaged.ic50, metadata2, by = c("drug", "cellLine"))
 averaged.ic50 <- filter(averaged.ic50, log(x) < 0)
 ic50.m <- spread(averaged.ic50, drug, x)
@@ -195,10 +213,10 @@ pheatmap(mat = log(ic50.overlap), cluster_rows = TRUE, annotation_row = metadata
 
 ```{r, eval=FALSE, fig.align='center', fig.height=5, fig.width=10, include=FALSE}
 ##Figure X: Clustering of IC50 for all drugs used in schwannoma.
-pheatmap(mat = scale(log(ic50.m[1:7,])), cluster_rows = TRUE, annotation_row = metadata2[1:7,] %>% select(tumorType, NF2Status, organism), annotation_col = drug.annot %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'scaled log(IC50)')
+#pheatmap(mat = scale(log(ic50.m[1:7,])), cluster_rows = TRUE, annotation_row = metadata2[1:7,] %>% select(tumorType, #NF2Status, organism), annotation_col = drug.annot %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = #12, border_color = 'grey', main = 'scaled log(IC50)')
 ```
 
 ##Summary
-These analyses suggest that across the drug screening panel, **tumor type has the greatest correlation drug efficacy**, as the schwannoma models are consistently more sensitive than the meningioma models. **Conversely, NF2 status doesn't significantly contribute to drug efficacy. Panobinostat, GSK2126458, CUDC907, and bortezomib are the most efficacious drugs as measured by AUC, independent of tumor type.** 
+These analyses suggest that across the drug screening panel, **tumor type has the greatest correlation drug efficacy**, as the schwannoma models are consistently more sensitive than the meningioma models. **Conversely, NF2 status doesn't significantly contribute to drug efficacy. Panobinostat, GSK2126458, CUDC907, and bortezomib are the most efficacious drugs as measured by IC50, independent of tumor type.** 
 
 Note: Different readouts of drug efficacy lead to slightly different interpretations. AUC suggests that the schwannoma models are more sensitive to the panel of small molecules, while IC50 suggests that the meningioma models are more sensitive. Furthermore, maximum efficacy of the panel of molecules is correlated with NF2 status, while AUC and IC50 are not. As a result, all measurements used to demonstrate drug potency (Simpson AUC, IC50, maximum efficacy) may need to be considered as they can lead to different conclusions. 

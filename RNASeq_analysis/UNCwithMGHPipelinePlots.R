@@ -13,24 +13,28 @@ synapseLogin()
 files <- c("syn9884535", "syn9884502", "syn9884491", "syn9884548", "syn9884513",
            "syn9884562", "syn9884524", "syn9884581", "syn9884592", "syn9884617")
 
-#degenes<-lapply(files, function(x){
-#  bar<-synGet(x)
-#  foo<-read.table(bar@filePath, header = T)
-#  comp <- bar@fileHandle$fileName
-#  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
-#  foo$comparison <- c(rep(comp, nrow(foo)))
-#  foo$Hugo_Gene <- rownames(foo)
-#  foo
-#})
+degenes<-lapply(files, function(x){
+ bar<-synGet(x)
+ foo<-read.table(bar@filePath, header = T)
+  comp <- bar@fileHandle$fileName
+  comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
+  foo$comparison <- c(rep(comp, nrow(foo)))
+  foo$Hugo_Gene <- rownames(foo)
+  foo
+})
 
-#degenes <- ldply(degenes)
+degenes <- ldply(degenes)
 
+##added back ENSG ids for analysis with DAVID
+map <- read.table("ensemble_hugomap.txt", sep = "\t", header = TRUE)
+degenes <- left_join(degenes, map)
+          
 this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCwithMGHPipelinePlots.R"
 
-#write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")
-#synStore(File("schwannoma_degenes_reseq_edgeR.txt", parentId="syn9884455"), 
-#         used = files,
-#         executed = this.file)
+write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")
+synStore(File("schwannoma_degenes_reseq_edgeR.txt", parentId="syn9884455"), 
+         used = files,
+         executed = this.file)
 
 ##merged table is on synapse
 degenes <- read.table(synGet("syn9884855")@filePath, header = TRUE, sep = "\t")
@@ -41,6 +45,7 @@ for(x in unique(degenes$comparison)){
   bar2 <- filter(bar, BH < 0.1) %>% group_by(Hugo_Gene) %>% top_n(1, -logFC) %>% ungroup()
   
   p<-ggplot(bar2, aes(x=Hugo_Gene %>% reorder(logFC) , y=logFC, fill = logFC)) +
+    theme_bw() +
     geom_bar(stat = "identity") +
     scale_fill_viridis(option = "C") +
     theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +
@@ -53,6 +58,7 @@ for(x in unique(degenes$comparison)){
   bar3 <- distinct(rbind((bar2 %>% top_n(15, logFC)), (bar2 %>% top_n(15, -logFC))))
   
   p<-ggplot(bar3, aes(x=Hugo_Gene %>% reorder(logFC), y=logFC, fill = logFC)) +
+    theme_bw() +
     geom_bar(stat = "identity") +
     scale_fill_viridis(option = "C") +
     theme(legend.position="none", axis.text.x=element_text(angle=60,hjust=1)) +

@@ -238,10 +238,14 @@ getNormCounts <- function(countdata,prefix){
   this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
   write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
   synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
-  
 }
 
 prefix <- "NormCounts"
 countdata <- counttable2
 getNormCounts(counttable2,prefix)
+
+
+
+
+
 

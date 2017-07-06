@@ -14,6 +14,8 @@ synapseLogin()
 
 ##counts and %mapped from bams using samtools
 qc<- read.table(synGet("syn9904189")@filePath, sep = "\t", header = TRUE, colClasses = c("factor", "numeric", "numeric"))
+qc2 <- read.table("schwannBamQC_2.txt", sep = "\t", header = TRUE, colClasses = c("factor", "numeric", "numeric") )
+
 ```
 
 ```{r, echo=FALSE, fig.height= 6, fig.width=6}
@@ -40,4 +42,28 @@ clust<-hclust(dist(t(norm.counts)))
 plot(clust)
 
 ```
+
+
+##round 2 qc (full mgh pipeline)
+```{r, echo=FALSE, fig.height= 6, fig.width=6}
+library(scales)
+ggplot(data = qc2, aes(x=run, y=reads.mapped)) +
+  geom_bar(stat="identity") +
+  labs(x="Run", y="Read Count") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  scale_y_continuous(labels = comma)
+ggsave("UNC_reseq_readcount_2.png", height=6,width =6)
+```
+##
+```{r, echo=FALSE, fig.height= 6, fig.width=6}
+ggplot(data = qc2, aes(x=run, y=perc.map)) +
+  geom_bar(stat="identity") +
+  labs(x="Run", y="Percent Mapped (%)") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+ggsave("UNC_reseq_percentmapped_2.png", height=6,width =6)
+```
+
+
+
+
 

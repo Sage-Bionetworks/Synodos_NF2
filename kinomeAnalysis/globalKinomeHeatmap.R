@@ -1,5 +1,5 @@
 library(synapseClient)
-library(pheatmap)
+library(pheatmap) ## as of june 2017 requires DEV version from github for "na_col"
 library(viridis)
 library(dplyr)
 library(tidyr)
@@ -22,6 +22,7 @@ rownames(kin) <- kin$treatment
 kin <- kin[,-1]
 kin <- t(kin)
 
+
 ##only considering complete cases works 
 kin2<-kin[complete.cases(kin),]
 
@@ -43,20 +44,27 @@ dev.off()
 kin2<-kin
 medians <- colMedians(kin2, na.rm = TRUE)
 sd <- colSds(kin2, na.rm = TRUE)
-kin.center <- scale(kin2, center = medians, scale = FALSE)
 kin.scale <- scale(kin2, center = medians, scale = sd)
 
-kin2<-kin2[rowSums(is.na(kin))<8,]
-
+kin.scale<-kin.scale[rowSums(is.na(kin.scale))<5,]
 
 pdf("kinome-mini-half.pdf", height = 15)
-pheatmap(kin2, border_color = NA, fontsize_row = 3, cellheight = 1.5, na_col = "grey", fontsize_col = 15)
+pheatmap(kin.scale, border_color = NA, color = viridis(500, direction = 1, option = "D"), fontsize_row = 3, cellheight = 1.5, na_col = "grey", fontsize_col = 15)
 dev.off()
 
 pdf("kinome-zoom-half.pdf", height = 20)
-pheatmap(kin2, border_color = NA, fontsize_row = 5,
+pheatmap(kin.scale, border_color = NA, fontsize_row = 5, color = viridis(500, direction = 1, option = "D"),
          fontsize_col = 5, cellwidth = 5, cellheight = 5, height = 11, na_col = "grey")
 dev.off()
+
+#pdf("kinome-mini-half.pdf", height = 15)
+#pheatmap(kin2, border_color = NA, fontsize_row = 3, cellheight = 1.5, na_col = "grey", fontsize_col = 15)
+#dev.off()
+
+#pdf("kinome-zoom-half.pdf", height = 20)
+#pheatmap(kin2, border_color = NA, fontsize_row = 5,
+#         fontsize_col = 5, cellwidth = 5, cellheight = 5, height = 11, na_col = "grey", )
+#dev.off()
 
 
 

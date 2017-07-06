@@ -75,8 +75,7 @@ tmp_iterator <- function(df){
   })
 }
 
-UCF_normViab <- 'syn2773870'
-UCF_normViab <- synGet(UCF_normViab)
+UCF_normViab <- synGet('syn2773870')
 UCF_normViab <- read.delim(UCF_normViab@filePath, check.names=F, sep="\t",
 header=T,stringsAsFactors = FALSE)
 UCF_normViab$cellLine <- gsub("^ ", "", UCF_normViab$cellLine)
@@ -97,6 +96,11 @@ doseResp_new <- ddply(.data=UCF_normViab, .variables = c('drug', 'cellLine'),
                       .fun = tmp_iterator, .parallel = T)
 
 doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
+
+upload <- doseResp_new %>% select(drug, cellLine, IC50, Simpson) %>% 
+  distinct()
+write.table(upload, "MatchedAUCSchwann.txt", sep = "\t")
+synStore(File("MatchedAUCSchwann.txt", parentId = "syn9705932"))
 
 drugs <- c("CUDC907","Panobinostat","GSK2126458")
 drugs2 <- c("AR42", "Axitinib", "AZD2014","Bortezomib","Everolimus", "Ganetespib", "GDC0941", "GDC0980",

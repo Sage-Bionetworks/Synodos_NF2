@@ -33,13 +33,26 @@ booktabs()
 
 ```{r, include=FALSE}
 
+.Simpson <- function(x, y){
+    dx <- mean(diff(x, lag = 1), na.rm = TRUE)
+    n <- length(y)
+    if(n%%2 != 0){
+        x <- x[-n]
+        y <- y[-n]
+        n <- length(x)
+        }
+    f1 <- y[1]
+    fn <- y[n]
+    fy <- y[2:(n-1)]*rep(c(4, 2), (n-2)/2)
+    return(dx/3*(f1 + sum(fy) + fn))
+}
+
 get_drugResponse_stats <- function(conc,viability,...){
   res <- nplr(conc, viability,...)
   results <- getAUC(res)
   results['goodNess_of_fit'] <- getGoodness(res)[1]
   results['stdErr'] <- getStdErr(res)[1]
-  ICx_est = getEstimates(res, targets=
-c(.10,.20,.30,.40,.50,.60,.70,.80,.90), conf.level = 0.95)
+  ICx_est = getEstimates(res, targets=c(.10,.20,.30,.40,.50,.60,.70,.80,.90), conf.level = 0.95)
   results['IC10'] = ICx_est[1,'x']
   results['IC20'] = ICx_est[2,'x']
   results['IC30'] = ICx_est[3,'x']
@@ -55,9 +68,11 @@ c(.10,.20,.30,.40,.50,.60,.70,.80,.90), conf.level = 0.95)
   results['bottom_asymptote'] = res@pars['bottom']
   results['top_asymptote'] = res@pars['top']
   results['hillSlope'] =  res@pars['scal']
-
   fittedVals <- data.frame(fittedX = getXcurve(res),
                            fittedY = getYcurve(res))
+  fittedValsMatched <- filter(fittedVals, fittedX >= -9 & fittedX <= -5)
+  results['matchedAUC'] = .Simpson(fittedValsMatched$fittedX,
+                                   fittedValsMatched$fittedY)
   results <- cbind(results,fittedVals)
   results
 }
@@ -78,8 +93,7 @@ tmp_iterator <- function(df){
   })
 }
 
-MGH_normViab <- 'syn2773792'
-MGH_normViab <- synGet(MGH_normViab)
+MGH_normViab <- synGet('syn2773792')
 MGH_normViab <- read.delim(MGH_normViab@filePath, check.names=F, sep="\t",
 header=T,stringsAsFactors = FALSE)
 #drop unnecassary cols
@@ -101,6 +115,13 @@ doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 drugs <- c("CUDC907","Panobinostat","GSK2126458")
 drugs2 <- c("AR42","Axitinib","AZD2014","Bortezomib","Ganetespib","GDC0941","GDC0980","Vorinostat")
 
+
+upload <- doseResp_new %>% select(drug, cellLine, IC50, matchedAUC) %>% 
+  distinct()
+
+write.table(upload, "MatchedAUCMening.txt", sep = "\t")
+synStore(File("MatchedAUCMening.txt", parentId = "syn9705932"))
+         
 ###########
 
 myColors <- c("#384DEA", "#C6A40B", "#BF2B2B")

@@ -33,17 +33,36 @@ bar$quadrant[bar$logFC<0 & bar$Mean_Kinome_Ratio>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Baseline") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("HS01-HS11-baseline-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 5) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-baseline-integrated.png", height = 8, width = 8)
+
+ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(Mean_Kinome_Ratio)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-baseline-integrated_logFC.png", height = 8, width = 8)
 
 #HS01 - HS11 tx
 sch.kin.cudc<-sch.kin.tx %>% 
@@ -63,17 +82,36 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "CUDC907") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("HS01-HS11-cudc-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+  axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-cudc-integrated.png", height = 6.5, width = 6.5)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-cudc-integrated_logFC.png", height = 6.5, width = 6.5)
 
 sch.kin.gsk<-sch.kin.tx %>% 
   filter(drug == "GSK458") %>%
@@ -92,17 +130,36 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "GSK2126458") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("HS01-HS11-gsk-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"), 
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-gsk-integrated.png", height = 6.5, width = 6.5)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75),                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"), 
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-gsk-integrated_logFC.png", height = 6.5, width = 6.5)
+
 
 sch.kin.pano<-sch.kin.tx %>% 
   filter(drug == "Pano") %>%
@@ -121,31 +178,53 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Panobinostat") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("HS01-HS11-panobinostat-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-panobinostat-integrated.png", height = 6.5, width = 6.5)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("HS01-HS11-panobinostat-integrated_logFC.png", height = 6.5, width = 6.5)
+
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point(data = bar %>% filter(BH<0 & pval_adj <0)) +
   geom_label_repel(data = bar %>% filter(BH<0 & pval_adj <0), 
                    aes(label = Hugo_Gene, fill = BH<0.1), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c('TRUE' = '#3FA34D', 'FALSE' = '#A09F9D'), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Integrated Analysis") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("blankplot-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
 
+ggsave("blankplot-integrated.png", height = 6.5, width = 6.5)
 
 ##meningioma 
 degenes<-read.table(synGet("syn6166525")@filePath, sep = "\t", header = TRUE, comment.char = "")
@@ -172,19 +251,40 @@ bar$quadrant[bar$logFC<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
+## removed axis labels to clean up quad 3 collision 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Baseline") +
-  theme(plot.title = element_text(hjust = 0.5))
+                   point.padding = unit(0.25, "lines"),
+                   size = 5,
+                   max.iter = 20000) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
 
-ggsave("Syn5-Syn1-baseline-integrated.png", height = 6, width = 6)
+ggsave("Syn5-Syn1-baseline-integrated.png", height = 8, width = 8)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4,
+                   max.iter = 20000) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-baseline-integrated_logFC.png", height = 8, width = 8)
 
 
 #Syn5 - Syn1 treatment
@@ -205,17 +305,36 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Baseline") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("Syn5-Syn1-CUDC-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-CUDC-integrated.png", height = 6.5, width = 6.5)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-CUDC-integrated_logFC.png", height = 6.5, width = 6.5)
 
 mn.kin.gsk<-mn.kin.tx %>% 
   filter(drug == "GSK458") %>%
@@ -234,18 +353,36 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "GSK2126458") +
-  theme(plot.title = element_text(hjust = 0.5))
+                   point.padding = unit(0.25, "lines"),
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
 
-ggsave("Syn5-Syn1-GSK-integrated.png", height = 6, width = 6)
+ggsave("Syn5-Syn1-GSK-integrated.png", height = 6.5, width = 6.5)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-GSK-integrated_logFC.png", height = 6.5, width = 6.5)
 
 
 mn.kin.pano<-mn.kin.tx %>% 
@@ -265,14 +402,106 @@ bar$quadrant[bar$logFC<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
 ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
   geom_point() +
   geom_label_repel(data = bar %>% filter(BH<0.05 & pval_adj <0.05), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
-                   point.padding = unit(0.25, "lines")) +
-  scale_fill_manual(values = c("1" = "#F55D3E", "2" = "#F6AE2D", "3" = "#67AFEA", "4" = "#F6AE2D"), guide = "none") +
-  labs(x = "FC Kinome", y = "log(2)FC Transcriptome", title = "Panobinostat") +
-  theme(plot.title = element_text(hjust = 0.5))
-ggsave("Syn5-Syn1-GSK-integrated.png", height = 6, width = 6)
+                   point.padding = unit(0.25, "lines"),
+                   size = 6) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-Pano-integrated.png", height = 6.5, width = 6.5)
+
+ggplot(bar, aes(y = logFC, x = FC)) +
+  theme_bw() +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_vline(aes(xintercept = 0)) +
+  geom_point() +
+  geom_label_repel(data = bar %>% filter(abs(logFC)>0.75 | abs(FC)>0.75), 
+                   aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                   box.padding = unit(0.35, "lines"),
+                   point.padding = unit(0.25, "lines"),
+                   size = 4) +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
+        axis.title = element_text(size = 0))
+
+ggsave("Syn5-Syn1-Pano-integrated_logFC.png", height = 6.5, width = 6.5)
+
+
+
+
+
+
+
+#HS01 - HS11 GO overlap plots for UCF
+sch.kin<-dat %>% 
+  filter(cellLine=="HS01", referenceSample=="HS11") %>%
+  select(Gene, log2ratio) %>% 
+  group_by(Gene) %>% 
+  dplyr::summarise(mean(log2ratio)) %>%
+  arrange(desc(`mean(log2ratio)`))
+
+colnames(sch.kin) <- c("Hugo_Gene", "Mean_Kinome_Ratio")
+
+bar <- filter(degenes, comparison=="HS01DMSOvsHS11DMSO") %>% select(Hugo_Gene, logFC, BH) %>% inner_join(sch.kin)
+bar$quadrant[bar$logFC>0 & bar$Mean_Kinome_Ratio>0] <- 1
+bar$quadrant[bar$logFC>0 & bar$Mean_Kinome_Ratio<0] <- 2
+bar$quadrant[bar$logFC<0 & bar$Mean_Kinome_Ratio<0] <- 3
+bar$quadrant[bar$logFC<0 & bar$Mean_Kinome_Ratio>0] <- 4
+bar$quadrant <- as.factor(bar$quadrant)
+
+upgenes <- read.table("../RNASeq_analysis/HS01vsHS11_DMSO_GOup_genes.txt", header = TRUE, sep = "\t")
+downgenes <- read.table("../RNASeq_analysis/HS01vsHS11_DMSO_GOdown_genes.txt", header = TRUE, sep = "\t")
+
+for(i in colnames(upgenes)){
+  print(i)
+  int <- base::intersect(bar$Hugo_Gene, upgenes[,i])
+  print(int)
+  bar2 <- filter(bar, Hugo_Gene %in% int)
+
+  ggplot(bar2, aes(y = logFC, x = Mean_Kinome_Ratio)) +
+    theme_bw() +
+    geom_hline(aes(yintercept = 0)) + 
+    geom_vline(aes(xintercept = 0)) +
+    geom_point() +
+    geom_label_repel(data = bar2, 
+                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                    box.padding = unit(0.35, "lines"),
+                    point.padding = unit(0.25, "lines"),
+                    size = 5) +
+    scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+    theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm")) +
+    labs(x= "Kinome Ratio", y = "log2FC Transcriptome", title = i)
+  
+
+ggsave(paste("HS01-HS11-baseline-GO-",i,".png"), height = 8, width = 8)
+}
+
+for(i in colnames(downgenes)){
+  print(i)
+  int <- base::intersect(bar$Hugo_Gene, downgenes[,i])
+  print(int)
+  bar2 <- filter(bar, Hugo_Gene %in% int)
+  
+  ggplot(bar2, aes(y = logFC, x = Mean_Kinome_Ratio)) +
+    theme_bw() +
+    geom_hline(aes(yintercept = 0)) + 
+    geom_vline(aes(xintercept = 0)) +
+    geom_point() +
+    geom_label_repel(data = bar2, 
+                     aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
+                     box.padding = unit(0.35, "lines"),
+                     point.padding = unit(0.25, "lines"),
+                     size = 5) +
+    scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+    theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm")) +
+    labs(x= "Kinome Ratio", y = "log2FC Transcriptome", title = i)
+  
+  ggsave(paste("HS01-HS11-baseline-GO-",i,".png"), height = 8, width = 8)
+}
