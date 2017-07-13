@@ -79,7 +79,7 @@ d1<-filter(d, drug %in% commondrugs)
 modelAUC <- lm(Simpson ~ tumorType + NF2Status + drug + organism, data=d1)
 #modelMaxEfficacy <- lm(maxEfficacy ~ tumorType + NF2Status + drug + organism, data=d1)
 #modelIC50 <- lm(log10(IC50) ~ tumorType + NF2Status + drug + organism, data=d1)
-sjp.setTheme(base = theme_gray(), title.align = "center")
+sjp.setTheme(base = theme_bw(), title.align = "center")
 
 sjp.lm(fit = modelAUC, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.values = FALSE)
 #sjp.lm(fit = modelMaxEfficacy, type = "lm", title = 'Max Efficacy', y.offset = 0.3, show.values = FALSE)
@@ -179,7 +179,7 @@ drug.annot <- as.data.frame((drug.annot[,-1]))
 rownames(drug.annot) <- sub("-", "", rownames(drug.annot))
 drug.annot2<-drug.annot[rownames(drug.annot) %in% colnames(simp.overlap),]
 
-pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metadata %>% select(NF2Status), annotation_col = drug.annot2 %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)')
+pheatmap(mat = scale(simp.overlap), cluster_rows = TRUE, annotation_row = metadata %>% select(NF2Status), annotation_col = drug.annot2 %>% select(Pathway), color = rev(wes), cellwidth = 12, cellheight = 12, border_color = 'grey', main = 'Area Under the Curve (AUC)', clustering_method = "average")
 ```
 
 

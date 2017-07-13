@@ -37,3 +37,4 @@ FiguresNoGit/
 NF2_annotation.xlsx
 *.tiff
 *.log
+.DS_Store
