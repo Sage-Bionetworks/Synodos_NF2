@@ -1,8 +1,11 @@
 #!/usr/bin/env Rscript
 
+
+
 library("edgeR")
 library("gap")
 library("gdata")
+library(data.table)
 library("synapseClient")
 library("plyr")
 library("dplyr")
@@ -99,13 +102,16 @@ b5_metaData <- b5_metaData %>% mutate(Sample.ID = as.character(b5_metaData$Sampl
   mutate(tmp = Sample.ID) %>%
   tidyr::separate(tmp, into=c('sampleName','tmp'), sep='-')
 
+
 #batch5 counts
-b5_counts <- read.xls(synGet("syn7320467")@filePath)
+b5_counts <- fread(synGet("syn7467412")@filePath, data.table=F)
 b5_counts <- b5_counts[,-c(1:3)]
 rownames(b5_counts) <- b5_counts$gene
 b5_counts$gene <- NULL
 colnames(b5_counts) <- gsub('_','-',colnames(b5_counts))
-b5_counts <- b5_counts[2:nrow(b5_counts),]
+#b5_counts <- b5_counts[2:nrow(b5_counts),]
+
+head(b5_counts)
 
 #group variable
 b5_counts <- b5_counts[,b5_metaData$Sample.ID]
@@ -130,7 +136,6 @@ MS03DMSO_vs_MS12DMSO <- MS03DMSO_vs_MS12DMSO %>%
          cellLine2 = 'MS12',
          treatment1 = 'DMSO',
          treatment2 = 'DMSO')
-
 
 ############################
 ### MS03  vs MS12  for CUDC
@@ -189,17 +194,17 @@ MS03Pano_vs_MS12Pano <- MS03Pano_vs_MS12Pano %>%
          treatment2 = 'Pano')
 
 
-
 mouse_schwannoma_diffExpgenes <- rbind(MS03Pano_vs_MS12Pano, MS03GSK458_vs_MS12GSK458,
                                        MS03CUDC_vs_MS12CUDC, MS03DMSO_vs_MS12DMSO)
+
 
 
 ########
 # upload the data
 ########
-
-
-
-x <- mouse_schwannoma_diffExpgenes %>% group_by(cellLine1, cellLine2, treatment1, treatment2) %>%
-  summarise(n = sum(BH < .05))
-
+outFile = "Synodos_mouseSchwannoma_RNASeq_diffExp_genes.tsv"
+write.table(mouse_schwannoma_diffExpgenes, file=outFile, sep="\t", col.names=T, row.names = F)
+synStore(File(outFile, parentId = 'syn6004175'),
+         used = c('syn7436870','syn7467412'),
+         executed = "https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/RNASeq_analysis/mouse_schwannoma_RNASeq.R")
+unlink(outFile)
