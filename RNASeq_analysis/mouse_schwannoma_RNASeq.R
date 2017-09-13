@@ -129,7 +129,7 @@ caseSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == 'DMSO') %
 prefix <- "MS03-DMSO_vs_MS12-DMSO"
 contrast = c(0,1,0,0,0,-1,0,0)
 MS03DMSO_vs_MS12DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
-                          outputPath="~/dev/Synodos_NF2/RNASeq_analysis/plots/")
+                          outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
 MS03DMSO_vs_MS12DMSO <- MS03DMSO_vs_MS12DMSO %>%
   tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
   mutate(cellLine1 = 'MS03',
@@ -147,7 +147,7 @@ colnames(model.matrix( ~ 0 + groups))
 
 contrast = c(1,0,0,0,-1,0,0,0)
 MS03CUDC_vs_MS12CUDC <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
-                                        outputPath="~/dev/Synodos_NF2/RNASeq_analysis/plots/")
+                                        outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
 MS03CUDC_vs_MS12CUDC <- MS03CUDC_vs_MS12CUDC %>%
   tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>% 
   mutate(cellLine1 = 'MS03',
@@ -166,7 +166,7 @@ prefix <- "MS03-GSK458_vs_MS12-GSK458"
 
 contrast = c(0,0,1,0,0,0,-1,0)
 MS03GSK458_vs_MS12GSK458 <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
-                                            outputPath="~/dev/Synodos_NF2/RNASeq_analysis/plots/")
+                                            outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
 MS03GSK458_vs_MS12GSK458 <- MS03GSK458_vs_MS12GSK458 %>%
   tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
   mutate(cellLine1 = 'MS03',
@@ -185,7 +185,7 @@ prefix <- "MS03Pano_vs_MS12Pano"
 
 contrast = c(0,0,0,1,0,0,0,-1)
 MS03Pano_vs_MS12Pano <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
-                                            outputPath="~/dev/Synodos_NF2/RNASeq_analysis/plots/")
+                                            outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
 MS03Pano_vs_MS12Pano <- MS03Pano_vs_MS12Pano %>%
   tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
   mutate(cellLine1 = 'MS03',
@@ -194,8 +194,122 @@ MS03Pano_vs_MS12Pano <- MS03Pano_vs_MS12Pano %>%
          treatment2 = 'Pano')
 
 
+############################
+### MS03 for DMSO vs CUDC
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == 'CUDC907') %>% .$Sample.ID
+prefix <- "MS03CUDC_vs_MS03DMSO"
+
+contrast = c(1,-1,0,0,0,0,0,0)
+MS03CUDC_vs_MS03DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                        outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS03CUDC_vs_MS03DMSO <- MS03CUDC_vs_MS03DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS03',
+         cellLine2 = 'MS03',
+         treatment1 = 'CUDC',
+         treatment2 = 'DMSO')
+
+
+############################
+### MS03 for DMSO vs GSK
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == 'GSK2126458') %>% .$Sample.ID
+prefix <- "MS03GSK458_vs_MS03DMSO"
+
+contrast = c(0,-1,1,0,0,0,0,0)
+MS03GSK458_vs_MS03DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                        outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS03GSK458_vs_MS03DMSO <- MS03GSK458_vs_MS03DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS03',
+         cellLine2 = 'MS03',
+         treatment1 = 'GSK458',
+         treatment2 = 'DMSO')
+
+############################
+### MS03 for DMSO vs Panobinostat
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS03' & treatment == 'Panobin') %>% .$Sample.ID
+prefix <- "MS03Panobin_vs_MS03DMSO"
+
+contrast = c(0,-1,0,1,0,0,0,0)
+MS03Panobin_vs_MS03DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                          outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS03Panobin_vs_MS03DMSO <- MS03Panobin_vs_MS03DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS03',
+         cellLine2 = 'MS03',
+         treatment1 = 'Pano',
+         treatment2 = 'DMSO')
+
+############################
+### MS12 for DMSO vs CUDC
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == 'CUDC907') %>% .$Sample.ID
+prefix <- "MS12CUDC_vs_MS12DMSO"
+
+contrast = c(0,0,0,0,1,-1,0,0)
+MS12CUDC_vs_MS12DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                        outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS12CUDC_vs_MS12DMSO <- MS12CUDC_vs_MS12DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS12',
+         cellLine2 = 'MS12',
+         treatment1 = 'CUDC',
+         treatment2 = 'DMSO')
+
+
+############################
+### MS12 for DMSO vs GSK
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == 'GSK2126458') %>% .$Sample.ID
+prefix <- "MS12GSK458_vs_MS12DMSO"
+
+contrast = c(0,0,0,0,0,-1,1,0)
+MS12GSK458_vs_MS12DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                          outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS12GSK458_vs_MS12DMSO <- MS12GSK458_vs_MS12DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS12',
+         cellLine2 = 'MS12',
+         treatment1 = 'GSK458',
+         treatment2 = 'DMSO')
+
+############################
+### MS12 for DMSO vs Panobinostat
+############################
+colnames(model.matrix( ~ 0 + groups))
+controlSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == "DMSO") %>% .$Sample.ID
+caseSamples <- filter(b5_metaData, sampleName == 'MS12' & treatment == 'Panobin') %>% .$Sample.ID
+prefix <- "MS12Panobin_vs_MS12DMSO"
+
+contrast = c(0,0,0,0,0,-1,0,1)
+MS12Panobin_vs_MS12DMSO <- edgeRDEanalysis(b5_counts,groups,controlSamples,caseSamples,prefix,contrast,readthreshold,
+                                           outputPath="~/Documents/Github/Synodos_NF2/RNASeq_analysis/plots")
+MS12Panobin_vs_MS12DMSO <- MS12Panobin_vs_MS12DMSO %>%
+  tidyr::separate(gene, into=c('ensemblId', 'geneName'), sep="\\|") %>%
+  mutate(cellLine1 = 'MS12',
+         cellLine2 = 'MS12',
+         treatment1 = 'Pano',
+         treatment2 = 'DMSO')
+
+
 mouse_schwannoma_diffExpgenes <- rbind(MS03Pano_vs_MS12Pano, MS03GSK458_vs_MS12GSK458,
-                                       MS03CUDC_vs_MS12CUDC, MS03DMSO_vs_MS12DMSO)
+                                       MS03CUDC_vs_MS12CUDC, MS03DMSO_vs_MS12DMSO, 
+                                       MS03CUDC_vs_MS03DMSO, MS03GSK458_vs_MS03DMSO,
+                                       MS03Panobin_vs_MS03DMSO, MS12CUDC_vs_MS12DMSO,
+                                       MS12GSK458_vs_MS12DMSO, MS12Panobin_vs_MS12DMSO)
 
 
 
@@ -206,5 +320,6 @@ outFile = "Synodos_mouseSchwannoma_RNASeq_diffExp_genes.tsv"
 write.table(mouse_schwannoma_diffExpgenes, file=outFile, sep="\t", col.names=T, row.names = F)
 synStore(File(outFile, parentId = 'syn6004175'),
          used = c('syn7436870','syn7467412'),
-         executed = "https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/RNASeq_analysis/mouse_schwannoma_RNASeq.R")
+         executed = "https://Github.com/Sage-Bionetworks/Synodos_NF2/blob/master/RNASeq_analysis/mouse_schwannoma_RNASeq.R")
 unlink(outFile)
+

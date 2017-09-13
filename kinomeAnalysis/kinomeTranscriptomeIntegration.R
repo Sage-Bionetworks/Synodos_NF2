@@ -239,6 +239,10 @@ mn.kin.tx <- kinome %>%
   filter(cellLine1 == "Syn5" & cellLine2 == "Syn1" & time1 == "24h" & time2 == "24h") %>% 
   mutate(FC = medRatio_peptides_cond1-medRatio_peptides_cond2)
 
+
+##some p-vals cannot be calculated due to lack of counts, set those to 1 
+mn.kin.tx$pval_adj[is.na(mn.kin.tx$pval_adj)] <- 1
+
 #Syn5 - Syn1 baseline
 mn.kin<-dat %>% 
   filter(cellLine=="Syn5", referenceSample=="Syn1") %>%
@@ -446,6 +450,9 @@ sch.kin.tx <- kinome %>%
   filter(cellLine1 == "HS01" & cellLine2 == "HS11" & time1 == "24h" & time2 == "24h") %>% 
   mutate(FC = medRatio_peptides_cond1-medRatio_peptides_cond2)
 
+##some p-vals cannot be calculated due to lack of counts, set those to 1 
+sch.kin.tx$pval_adj[is.na(sch.kin.tx$pval_adj)] <- 1
+
 schwann.cpm <- filter(schwann.cpm, Gene %in% sch.kin.tx$protein)
 
 schwann.cpm <- mutate(schwann.cpm, HS01_CUDC907_Run1_S2_dmsocorr=(HS01_CUDC907_Run1_S2/HS01_DMSO_average))
@@ -516,22 +523,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 8)) +
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Schwannoma_CUDC_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
@@ -552,22 +561,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8))+
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+        axis.title = element_text(size = 8)) +
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Schwannoma_GSK_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
@@ -589,22 +600,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 8)) +
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Schwannoma_PANO_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
@@ -705,22 +718,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 8)) +
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Meningioma_CUDC_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
@@ -741,22 +756,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 8)) +
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Meningioma_GSK_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
@@ -778,22 +795,24 @@ bar$quadrant[bar$logratio<0 & bar$FC<0] <- 3
 bar$quadrant[bar$logratio<0 & bar$FC>0] <- 4
 bar$quadrant <- as.factor(bar$quadrant)
 
-ggplot(bar, aes(y = logratio, x = FC)) +
+ggplot(bar, aes(x = FC, y = logratio)) +
   theme_bw() +
   geom_hline(aes(yintercept = 0)) + 
   geom_vline(aes(xintercept = 0)) +
-  geom_point() +
-  geom_label_repel(data = bar %>% filter(pval_adj <0.05 & abs(FC) > 0.5), 
+  geom_point(aes(color = pval_adj <0.05)) +
+  geom_label_repel(data = bar %>% filter(abs(FC)>1 | abs(logratio) > 1), 
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 8)) +
-  coord_cartesian(xlim = c(-1,1), ylim = c(-2,2))
+  coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
+  theme(legend.position="none")
 
 ggsave("Meningioma_PANO_Integrated_DMSOnorm.png", height = 6.5, width = 6.5)
 
