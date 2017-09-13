@@ -88,7 +88,9 @@ sjp.lm(fit = modelAUC, type = "lm", title = 'Simpson AUC', y.offset = 0.3, show.
 ```
 
 ```{r, include=FALSE}
-lmtable <-sjt.lm(modelAUC)
+lmtable <-sjt.lm(modelAUC, file = "Supplemental_Table_3.txt")
+
+sjt.lm(modelAUC, file = "Supplemental_Table_3.html")
 ```
 
 ###Table 1: Linear model values.

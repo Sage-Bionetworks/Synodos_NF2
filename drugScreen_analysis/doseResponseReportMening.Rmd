@@ -120,7 +120,8 @@ upload <- doseResp_new %>% select(drug, cellLine, IC50, matchedAUC) %>%
   distinct()
 
 write.table(upload, "MatchedAUCMening.txt", sep = "\t")
-synStore(File("MatchedAUCMening.txt", parentId = "syn9705932"))
+this.file = "https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/drugScreen_analysis/doseResponseReportMening.Rmd"
+synStore(File("MatchedAUCMening.txt", parentId = "syn9705932"), executed = this.file, used = "syn2773792")
          
 ###########
 
@@ -202,7 +203,10 @@ foo$`IG50 (95\\% CI, nM)`[foo$`IG50 (nM)`>5000] <- ">5000"
 foo$`IG50 (95\\% CI, nM)`[foo$`Max Resp (\\%)`<50] <- "n.d."
 foo$`IG50 (95\\% CI, nM)`[is.na(foo$`IG50 (nM)`)] <- "n.d."
 
-latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (95\\% CI, nM)` + `Max Resp (\\%)`), data = foo %>% filter(Drug %in% c("CUDC907", "Panobinostat", "GSK2126458"))))
+tab<-tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (95\\% CI, nM)` + `Max Resp (\\%)`), data = foo %>% filter(Drug %in% c("CUDC907", "Panobinostat", "GSK2126458")))
+
+write.table.tabular(tab, "Table3A.txt", sep = "\t")
+
 ```
 #Supplemental Data
 ##Supplemental Response table
@@ -235,6 +239,12 @@ foo$`IG50 (nM)`[is.na(foo$`IG50 (nM)`)] <- "n.d."
 foo$`IG50 (nM)`[is.na(foo$`IG50 (nM)`)] <- "n.d."
 
 latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("AR42", "Axitinib", "AZD2014"))))
+
+
+##all drugs in one table for plos bio formatting
+tab<-tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (\\%)`), data = foo)
+
+write.table.tabular(tab, "SuppTable1.txt", sep = "\t")
 ```
 ######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}

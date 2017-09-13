@@ -38,3 +38,6 @@ NF2_annotation.xlsx
 *.tiff
 *.log
 .DS_Store
+*.history
+*.cnts
+.DS_Store

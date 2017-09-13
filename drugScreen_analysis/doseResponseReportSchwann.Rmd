@@ -100,7 +100,9 @@ doseResp_r$IC50_nM <- (doseResp_r$IC50)*1000000000
 upload <- doseResp_new %>% select(drug, cellLine, IC50, Simpson) %>% 
   distinct()
 write.table(upload, "MatchedAUCSchwann.txt", sep = "\t")
-synStore(File("MatchedAUCSchwann.txt", parentId = "syn9705932"))
+
+this.file <- "https://github.com/Sage-Bionetworks/Synodos_NF2/blob/master/drugScreen_analysis/doseResponseReportSchwann.Rmd"
+synStore(File("MatchedAUCSchwann.txt", parentId = "syn9705932"), used = "syn2773870", executed = this.file)
 
 drugs <- c("CUDC907","Panobinostat","GSK2126458")
 drugs2 <- c("AR42", "Axitinib", "AZD2014","Bortezomib","Everolimus", "Ganetespib", "GDC0941", "GDC0980",
@@ -247,6 +249,10 @@ foo$`IG50 (95\\% CI, nM)`[foo$`Max Resp (\\%)`<50] <- "n.d."
 foo$`IG50 (95\\% CI, nM)`[is.na(foo$`IG50 (nM)`)] <- "n.d."
 
 latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (95\\% CI, nM)` + `Max Resp (\\%)`), data = foo %>% filter(Drug %in% c("CUDC907", "Panobinostat", "GSK2126458"))))
+
+tab<-tabular((`Cell Line` = factor(`Cell Line`)) ~ Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (95\\% CI, nM)` + `Max Resp (\\%)`), data = foo %>% filter(Drug %in% c("CUDC907", "Panobinostat", "GSK2126458")))
+
+write.table.tabular(tab, "Table3B.txt", sep = "\t")
 ```
 ######
 #Supplemental Data
@@ -282,6 +288,10 @@ foo$`IG50 (nM)`[is.na(foo$`IG50 (nM)`)] <- "n.d."
 ######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}
 latex(tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (\\%)`), data = foo %>% filter(Drug %in% c("AR42","Axitinib", "AZD2014"))))
+
+tab<-tabular((`Cell Line` = factor(`Cell Line`)) ~ Format(digits = 3) * Heading() * (factor(Drug)) * Heading() * identity * (`IG50 (nM)` +  `Max Response (\\%)`), data = foo)
+
+write.table.tabular(tab, "SuppTable2.txt", sep = "\t")
 ```
 ######
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results="asis", fig.align="center"}

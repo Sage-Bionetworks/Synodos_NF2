@@ -19,16 +19,13 @@ degenes<-lapply(files, function(x){
   comp <- bar@fileHandle$fileName
   comp <- gsub("_edgeR_quasilikelihoodFtest.txt", "", comp)
   foo$comparison <- c(rep(comp, nrow(foo)))
-  foo$Hugo_Gene <- rownames(foo)
+  foo$Hugo_Gene <- foo$gene
+  foo <- select(foo, -gene)
   foo
 })
 
 degenes <- ldply(degenes)
 
-##added back ENSG ids for analysis with DAVID
-map <- read.table("ensemble_hugomap.txt", sep = "\t", header = TRUE)
-degenes <- left_join(degenes, map)
-          
 this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCwithMGHPipelinePlots.R"
 
 write.table(degenes, "schwannoma_degenes_reseq_edgeR.txt", sep = "\t")

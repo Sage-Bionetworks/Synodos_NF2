@@ -23,6 +23,7 @@ tbl<- filter(tbl, `Cell Line` != "Syn13", `Cell Line` != "Syn14" )
 tbl<- filter(tbl, `Cell Line` != "Syn13", `Cell Line` != "Syn14" )
 
 pander(tbl)
+write.table(tbl, "Table1.txt", sep="\t", row.names = F)
 ```
 
 
