@@ -35,6 +35,8 @@ edgeRDEanalysis <- function(countdata, group, control, treatment, prefix, DEcont
   
   design <- model.matrix(~ 0 + group,data=y$samples)
   
+  print(design)
+  
   pdf(file=paste(outputPath, '/', prefix,"_MDplot.logcpm.pdf",sep=""),width=15,height=8)
   plotMD(cpm(y, log=TRUE),column=1)
   abline(h=0,col="red",lty=2,lwd=2)

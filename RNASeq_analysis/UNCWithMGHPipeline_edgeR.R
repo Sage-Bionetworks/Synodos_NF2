@@ -273,19 +273,27 @@ getNormCounts <- function(countdata,prefix){
   y <- calcNormFactors(y,method="TMM")
   cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
   this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
-  write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
-  synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
+  #write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
+  #synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
   
-  cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
+  #cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
   
   #uncomment to get cpms for all genes
-  cpm <- cpm(y, normalized.lib.sizes = T, log = FALSE, prior.count = 0.25)
+  cpm <- cpm(y, normalized.lib.sizes = T, log = TRUE, prior.count = 0.25)
   write.table(cpm, paste0(prefix, "_cpm.txt"), sep = "\t")
-  synStore(File("schwannomaCPMs_cpm.txt", parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
+  synStore(File(paste0(prefix, "_cpm.txt"), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
  
 }
 
-prefix <- "NormCounts"
+counttable2$gene <- rownames(counttable2)
+
+counttable2 <- aggregate(. ~ gene, data = counttable2, sum)
+
+rownames(counttable2) <- counttable2$gene
+counttable2 <- select(counttable2, -gene)
+
+
+prefix <- "NormCounts_edgeR_log2"
 countdata <- counttable2
 getNormCounts(counttable2,prefix)
 
@@ -403,24 +411,24 @@ edgeRDEanalysisWithInteraction <- function(countdata,group,control,treatment,pre
 #            HS11_GSK2126458_Run2_S7, HS11_GSK2126458_Run3_S7, HS11_panobinostat_Run1_S8, HS11_panobinostat_Run2_S8,
 #            HS11_panobinostat_Run3_S8)
 
-prefix <- "CUDC-HS01vsHS11-AdditiveModel"
-temptable <- select(counttable2, HS01_CUDC907_Run1_S2,HS01_CUDC907_Run2_S2, HS01_CUDC907_Run3_S2, 
-                    HS11_CUDC907_Run1_S6, HS11_CUDC907_Run2_S6, HS11_CUDC907_Run3_S6,
-                    HS01_DMSO_Run1_S1,HS01_DMSO_Run2_S1,HS01_DMSO_Run4_S9,
-                    HS11_DMSO_Run1_S5,HS11_DMSO_Run2_S5,HS11_DMSO_Run3_S5,HS11_DMSO_Run4_S9)
+#prefix <- "CUDC-HS01vsHS11-AdditiveModel"
+#temptable <- select(counttable2, HS01_CUDC907_Run1_S2,HS01_CUDC907_Run2_S2, HS01_CUDC907_Run3_S2, 
+#                    HS11_CUDC907_Run1_S6, HS11_CUDC907_Run2_S6, HS11_CUDC907_Run3_S6,
+#                    HS01_DMSO_Run1_S1,HS01_DMSO_Run2_S1,HS01_DMSO_Run4_S9,
+#                    HS11_DMSO_Run1_S5,HS11_DMSO_Run2_S5,HS11_DMSO_Run3_S5,HS11_DMSO_Run4_S9)
 
 ### 1 is drug, 0 is dmso
-condition <- c(rep("CUDC", 6), rep("DMSO", 7))
+#condition <- c(rep("CUDC", 6), rep("DMSO", 7))
 
 ### 1 is mutated, 0 is WT
-genotype <-  c("WT","WT","WT","MUT","MUT","MUT",
-               "WT","WT","WT","MUT","MUT","MUT","MUT")
+#genotype <-  c("WT","WT","WT","MUT","MUT","MUT",
+#               "WT","WT","WT","MUT","MUT","MUT","MUT")
                  
-ColWt <- c(7:13)
-ColMut <- c(1:6)
+#ColWt <- c(7:13)
+#ColMut <- c(1:6)
 
-contrast = c(1,-1,-1,1)
-groupbatch2 <- c(1,1,1,2,2,2,3,3,3,4,4,4,4)
+#contrast = c(1,-1,-1,1)
+#groupbatch2 <- c(1,1,1,2,2,2,3,3,3,4,4,4,4)
 
-edgeRDEanalysisWithInteraction(temptable,groupbatch2,ColWt,ColMut,prefix,contrast,readthreshold, condition, genotype)
+#edgeRDEanalysisWithInteraction(temptable,groupbatch2,ColWt,ColMut,prefix,contrast,readthreshold, condition, genotype)
 

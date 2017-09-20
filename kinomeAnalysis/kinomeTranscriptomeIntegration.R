@@ -42,8 +42,10 @@ ggplot(bar, aes(y = logFC, x = Mean_Kinome_Ratio)) +
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
-                   size = 5) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+                   size = 6) +
+  xlab("Kinome") +
+  ylab("Transcriptome") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 0))
 
@@ -270,9 +272,11 @@ ggplot(bar, aes(y = logFC, x = FC)) +
                    aes(label = Hugo_Gene, fill = quadrant), min.segment.length = unit(0, "lines"),
                    box.padding = unit(0.35, "lines"),
                    point.padding = unit(0.25, "lines"),
-                   size = 5,
+                   size = 6,
                    max.iter = 20000) +
-  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFC251", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
+  xlab("Kinome") +
+  ylab("Transcriptome") +
+  scale_fill_manual(values = c("1" = "#FF9C99", "2" = "#FFF791", "3" = "#91CDFF", "4" = "#FFC251"), guide = "none") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
         axis.title = element_text(size = 0))
 
@@ -538,7 +542,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 
@@ -576,7 +580,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 
@@ -615,7 +619,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 
@@ -733,7 +737,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 
@@ -771,7 +775,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 
@@ -810,7 +814,7 @@ ggplot(bar, aes(x = FC, y = logratio)) +
   xlab("Kinome") +
   ylab("Transcriptome") +
   theme(axis.text = element_text(size = 18), plot.margin = unit(c(1,1,1,1), "cm"),
-        axis.title = element_text(size = 8)) +
+        axis.title = element_text(size = 0)) +
   coord_cartesian(xlim = c(-1.5,1.5), ylim = c(-3.5,3.5)) +
   theme(legend.position="none")
 

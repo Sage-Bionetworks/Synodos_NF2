@@ -87,20 +87,31 @@ counttable2 <- noERCC[,c(5:40)]
 
 colnames(counttable2)
 
+counttable2$gene <- rownames(counttable2)
+
+counttable2 <- counttable2 %>% 
+  separate(gene, c("Hugo_Gene", "ensembl"), sep = '\\|') %>% 
+  dplyr::select(-ensembl)
+
+counttable2 <- aggregate(. ~ Hugo_Gene, data = counttable2, sum)
+
+rownames(counttable2) <- counttable2$Hugo_Gene
+counttable2 <- select(counttable2, -Hugo_Gene)
+
 getNormCounts <- function(countdata,prefix){
   y <- DGEList(countdata)
   y <- calcNormFactors(y,method="TMM")
   cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
-  this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
-  write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
-  synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
+  #this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
+  #write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
+  #synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
   
   cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
   
   #uncomment to get cpms for all genes
-  cpm <- cpm(y, normalized.lib.sizes = T, log = FALSE, prior.count = 0.25)
+  cpm <- cpm(y, normalized.lib.sizes = T, log = TRUE, prior.count = 0.25)
   write.table(cpm, paste0(prefix, "_cpm.txt"), sep = "\t")
-  synStore(File("schwannomaCPMs_cpm.txt", parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
+  #synStore(File("schwannomaCPMs_cpm.txt", parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
   
 }
 
@@ -111,4 +122,5 @@ getNormCounts(counttable2,prefix)
 
 this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/meningiomaCPMs.R"
 synStore(File("meningiomaCPM_cpm.txt", parentId="syn9884466"), executed = this.file)
+
 
