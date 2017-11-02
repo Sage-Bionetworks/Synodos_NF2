@@ -7,27 +7,6 @@ all <- read.table(synGet("syn7437782")@filePath, sep = "\t", header = TRUE, na.s
 idx <- grep("ERCC.+", all$ensemblId)
 all <- all[-idx,]
 
-some <- all %>% filter(cellLine1 == "MS03", cellLine2 == "MS12")
-gsk <- some %>% 
-  filter(treatment1 == "GSK458" & treatment2 == "GSK458") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
-
-colnames(gsk)[2:5] <- c("mouseGene","logFC.GSK", "logCPM.GSK", "BH.GSK")
-
-pano <- some %>% 
-  filter(treatment1 == "Pano" & treatment2 == "Pano") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
-
-colnames(pano)[2:5] <- c("mouseGene","logFC.Pano", "logCPM.Pano", "BH.Pano")
-
-cudc <- some %>% 
-  filter(treatment1 == "CUDC" & treatment2 == "CUDC")%>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
-
-colnames(cudc)[2:5] <- c("mouseGene","logFC.CUDC", "logCPM.CUDC",  "BH.CUDC")
-
-some2 <- cudc %>% full_join(gsk) %>% full_join(pano)
-
 homs <- read.table("HOM_MouseHumanSequence.rpt.txt", sep = "\t", header = TRUE) %>% 
   select(HomoloGene.ID, Common.Organism.Name, Symbol)
 
@@ -36,24 +15,43 @@ homs$Common.Organism.Name <- gsub("human", "humanGene", homs$Common.Organism.Nam
 
 homs <- homs %>%
   group_by(Common.Organism.Name, HomoloGene.ID) %>%
-  mutate(ind = row_number()) %>%
+  dplyr::mutate(ind = row_number()) %>%
   spread(Common.Organism.Name, Symbol) %>% 
   ungroup() %>% 
-  select(humanGene, mouseGene) %>% 
+  dplyr::select(humanGene, mouseGene) %>% 
   filter(!is.na(mouseGene))
 
-all2<-left_join(some2, homs)
+some <- all %>% filter(cellLine1 == "MS03", cellLine2 == "MS12")
 
-dmso <- some %>% 
+dmso.1 <- some %>% 
   filter(treatment1 == "DMSO" & treatment2 == "DMSO") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(dmso)[2:5] <- c("mouseGene","logFC.DMSO", "logCPM.DMSO", "BH.DMSO")
+colnames(dmso.1)[2:4] <- c("mouseGene","logFC.DMSO", "BH.DMSO")
 
-dmso <- left_join(dmso, homs)
-
-write.table(all2, "MS03vsMS12-treated.txt", sep = "\t")
-write.table(dmso, "MS03vsMS12-DMSO.txt", sep = "\t")
+#gsk.1 <- some %>% 
+#  filter(treatment1 == "GSK458" & treatment2 == "GSK458") %>% 
+#  select(ensemblId, geneName, logFC, logCPM, BH)
+#
+#colnames(gsk)[2:4] <- c("mouseGene","logFC.GSK", "logCPM.GSK", "BH.GSK")
+# 
+# pano.1 <- some %>% 
+#   filter(treatment1 == "Pano" & treatment2 == "Pano") %>% 
+#   select(ensemblId, geneName, logFC, logCPM, BH)
+# 
+# colnames(pano)[2:4] <- c("mouseGene","logFC.Pano", "logCPM.Pano", "BH.Pano")
+# 
+# cudc.1 <- some %>% 
+#   filter(treatment1 == "CUDC" & treatment2 == "CUDC")%>% 
+#   select(ensemblId, geneName, logFC, logCPM, BH)
+# 
+# colnames(cudc)[2:4] <- c("mouseGene","logFC.CUDC", "logCPM.CUDC",  "BH.CUDC")
+# 
+# some2 <- dmso1 %>% full_join(cudc.1) %>% full_join(gsk.1) %>% full_join(pano.1)
+# 
+# 
+# write.table(all2, "MS03vsMS12-treated.txt", sep = "\t")
+# write.table(dmso, "MS03vsMS12-DMSO.txt", sep = "\t")
 
 #opened in excel and finished for collaborators there. Supplemental Table 7 for paper,
 
@@ -62,53 +60,48 @@ write.table(dmso, "MS03vsMS12-DMSO.txt", sep = "\t")
 ###ms03
 
 some <- all %>% filter(cellLine1 == "MS03", cellLine2 == "MS03")
-gsk <- some %>% 
+gsk.2 <- some %>% 
   filter(treatment1 == "GSK458" & treatment2 == "DMSO") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(gsk)[2:5] <- c("mouseGene","logFC.GSK", "logCPM.GSK", "BH.GSK")
+colnames(gsk.2)[2:4] <- c("mouseGene","logFC.GSK.2", "BH.GSK.2")
 
-pano <- some %>% 
+pano.2 <- some %>% 
   filter(treatment1 == "Pano" & treatment2 == "DMSO") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(pano)[2:5] <- c("mouseGene","logFC.Pano", "logCPM.Pano", "BH.Pano")
+colnames(pano.2)[2:4] <- c("mouseGene","logFC.Pano.2", "BH.Pano.2")
 
-cudc <- some %>% 
+cudc.2 <- some %>% 
   filter(treatment1 == "CUDC" & treatment2 == "DMSO")%>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(cudc)[2:5] <- c("mouseGene","logFC.CUDC", "logCPM.CUDC",  "BH.CUDC")
-
-some2 <- cudc %>% full_join(gsk) %>% full_join(pano)
-
-all2<-left_join(some2, homs)
-
-write.table(all2, "MS03vsMS03-treated.txt", sep = "\t")
-
-###ms12
+colnames(cudc.2)[2:4] <- c("mouseGene","logFC.CUDC.2",  "BH.CUDC.2")
 
 some <- all %>% filter(cellLine1 == "MS12", cellLine2 == "MS12")
-gsk <- some %>% 
+
+gsk.3 <- some %>% 
   filter(treatment1 == "GSK458" & treatment2 == "DMSO") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(gsk)[2:5] <- c("mouseGene","logFC.GSK", "logCPM.GSK", "BH.GSK")
+colnames(gsk.3)[2:4] <- c("mouseGene","logFC.GSK.3", "BH.GSK.3")
 
-pano <- some %>% 
+pano.3 <- some %>% 
   filter(treatment1 == "Pano" & treatment2 == "DMSO") %>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(pano)[2:5] <- c("mouseGene","logFC.Pano", "logCPM.Pano", "BH.Pano")
+colnames(pano.3)[2:4] <- c("mouseGene","logFC.Pano.3", "BH.Pano.3")
 
-cudc <- some %>% 
+cudc.3 <- some %>% 
   filter(treatment1 == "CUDC" & treatment2 == "DMSO")%>% 
-  select(ensemblId, geneName, logFC, logCPM, BH)
+  select(ensemblId, geneName, logFC, BH)
 
-colnames(cudc)[2:5] <- c("mouseGene","logFC.CUDC", "logCPM.CUDC",  "BH.CUDC")
+colnames(cudc.3)[2:4] <- c("mouseGene","logFC.CUDC.3",  "BH.CUDC.3")
 
-some2 <- cudc %>% full_join(gsk) %>% full_join(pano)
+some2 <- dmso.1 %>% full_join(cudc.2) %>% full_join(pano.2) %>% full_join(gsk.2) %>% 
+  full_join(cudc.3) %>% full_join(pano.3) %>% full_join(gsk.3)
 
 all2<-left_join(some2, homs)
 
-write.table(all2, "MS12vsMS12-treated.txt", sep = "\t")
+write.table(all2, "MouseDEJoined.txt", row.names = F, quote = F, sep = "\t")
+

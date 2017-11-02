@@ -32,17 +32,13 @@ if (filter_short_genes == "y") {
   noERCC<-noShortGenes
 }
 
-
 rownames(noERCC) <- noERCC$gene
 noERCC <- noERCC[,-c(1)]
 
 ##### comparisons in Table2 
 ##### selecting 36 samples
-
-##map for hugo genes to ensembl ids for DAVID
-HugoToEnsembl <- read.table(synGet("syn10639112")@filePath, sep = "\t", comment.char = "")[-1,]
-colnames(HugoToEnsembl) <- c("gene", "ensembl")
-HugoToEnsembl <- filter(HugoToEnsembl, ensembl != "")
+HugoToEnsembl<-read.table(synGet("syn10639112")@filePath)
+colnames(HugoToEnsembl) <- c("ensembl", "gene")
 
 counttable2 <- noERCC
 
@@ -156,17 +152,9 @@ this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/mast
 #synStore(File(paste(prefix,"_edgeR_qlf_plotsmear.png",sep=""), parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
 #synStore(File(paste(prefix,"_volcanoplot.png"), parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
 
-#synStore(File(paste(prefix,"_edgeR_quasilikelihoodFtest.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
-
+synStore(File(paste(prefix,"_edgeR_quasilikelihoodFtest.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
 }
 
-######
-#prefix <- "schwannomaCPMs"
-#controlCol <- c(14,15,16)
-#treatmentCol <- c(1,2,3)
-#contrast = c(1,-1,0,0,-1,1,0,0,0)
-#edgeRDEanalysis(counttable2,groupbatch1,controlCol,treatmentCol,prefix,contrast,readthreshold)
-####
 #QCing
 
 prefix <- "oldanalysis"
@@ -279,7 +267,7 @@ getNormCounts <- function(countdata,prefix){
   #cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
   
   #uncomment to get cpms for all genes
-  cpm <- cpm(y, normalized.lib.sizes = T, log = TRUE, prior.count = 0.25)
+  cpm <- cpm(y, normalized.lib.sizes = T, log = FALSE, prior.count = 0.25)
   write.table(cpm, paste0(prefix, "_cpm.txt"), sep = "\t")
   synStore(File(paste0(prefix, "_cpm.txt"), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
  
@@ -292,8 +280,7 @@ counttable2 <- aggregate(. ~ gene, data = counttable2, sum)
 rownames(counttable2) <- counttable2$gene
 counttable2 <- select(counttable2, -gene)
 
-
-prefix <- "NormCounts_edgeR_log2"
+prefix <- "schwannomaCounts_edgeR"
 countdata <- counttable2
 getNormCounts(counttable2,prefix)
 

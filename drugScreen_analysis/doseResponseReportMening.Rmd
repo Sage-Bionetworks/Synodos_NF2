@@ -145,7 +145,7 @@ doseResp_new <-full_join(doseResp_new, group)
 
 ##Dose response curves
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=9, fig.height=4}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=9, fig.height=3}
 SYN_normViab <- MGH_normViab[MGH_normViab$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & MGH_normViab$drug %in% drugs,]
 
 SYN_doseResp <- doseResp[doseResp$cellLine %in% c("Syn1", "Syn2", "Syn3", "Syn4", "Syn5", "Syn6", "Syn7", "Syn10", "Syn12") & doseResp$drug %in% drugs,]
@@ -163,7 +163,7 @@ p1 <- p1 + coord_cartesian(ylim = c(0, 125))
 p1 <- p1 + guides(color=guide_legend(title="Cell Type"))
 p1 <- p1 + colScale
 p1
-ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 9, height = 4)
+ggsave(filename = "SYN_drug_response_2Dplot.pdf",width = 9, height = 3)
 ```
 
 ```{r, eval=FALSE, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}

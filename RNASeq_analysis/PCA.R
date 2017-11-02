@@ -71,7 +71,9 @@ pca.baseline <- prcomp(t(baseline), center = T)
 pcaplot <- as.data.frame(pca.baseline$x)
 pcaplot$samp <- rownames(pcaplot)
 vals <- summary(pca.baseline)
+
 ggplot(pcaplot, aes(x = PC1, y = PC2)) +
+  theme_bw() + 
   geom_point() +
   geom_label_repel(aes(label = samp, fill = samp), 
                    max.iter = 200000,
@@ -79,10 +81,15 @@ ggplot(pcaplot, aes(x = PC1, y = PC2)) +
                    box.padding = unit(0.5, "lines"),
                    point.padding = unit(0.25, "lines"),
                    size = 6) +
-  scale_fill_manual(values = c("HS11" = "#FF9C99", "HS01" = "#FF9C99", "MS12" = "#FFC251", "MS03" = "#FFC251", "Syn6" = "#91CDFF", "Syn5"  = "#91CDFF","Syn1"  = "#91CDFF"), guide = "none") +
-  labs(x = paste("PC1 (",signif(vals$importance[2,1]*100,3),"% variance explained)", sep = ""),
-       y = paste("PC2 (",signif(vals$importance[2,2]*100,3),"% variance explained)", sep = ""))
+  scale_fill_manual(values = c("HS11" = "#FF9C99", "HS01" = "#FF9C99", "MS12" = "#91CDFF", "MS03" = "#91CDFF", "Syn6" = "#B9A6DD", "Syn5"  = "#B9A6DD","Syn1"  = "#B9A6DD"), guide = "none") +
+  scale_x_continuous(name=paste0("PC1 (",signif(vals$importance[2,1]*100,3),"% variance explained)"),
+                     labels = scales::comma) +
+  scale_y_continuous(name=paste0("PC2 (",signif(vals$importance[2,2]*100,3),"% variance explained)"),
+                     labels = scales::comma)
+
+
 ggsave("RNASeqPCAPlot.png", height = 7, width = 7)
+
 
 
 baseline <- as.data.frame(all2.rank) %>% 

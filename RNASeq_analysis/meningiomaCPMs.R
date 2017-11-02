@@ -1,18 +1,4 @@
-#!/usr/bin/Rscript
 
-##### REQUIRED LIBRARIES #####
-
-library(edgeR)
-library(gap)
-
-##### INPUT FILES AND PARAMETERS ####
-
-## all necessary files can be found in syn6038272
-batch1 <- "data/batch1.cnts"
-batch2 <- "data/batch2.cnts"
-batch3 <- "data/batch3.cnts"
-
-batch2idlist <- "data/batch2_idlist.mod.txt"
 
 #args<-commandArgs(TRUE)
 #countfile1 <- args[1]
@@ -101,15 +87,9 @@ counttable2 <- select(counttable2, -Hugo_Gene)
 getNormCounts <- function(countdata,prefix){
   y <- DGEList(countdata)
   y <- calcNormFactors(y,method="TMM")
-  cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
-  #this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/RNASeq_analysis/UNCWithMGHPipeline_edgeR.R"
-  #write.table(cpm,file=paste(prefix,"_edgeR_log2_cpm.txt",sep=""),sep="\t",quote=FALSE)
-  #synStore(File(paste(prefix,"_edgeR_log2_cpm.txt",sep=""), parentId="syn9884467"), used = c("syn9925491","syn9884664"), executed = this.file)
-  
-  cpm <-cpm(y, normalized.lib.sizes=TRUE, log=TRUE)
   
   #uncomment to get cpms for all genes
-  cpm <- cpm(y, normalized.lib.sizes = T, log = TRUE, prior.count = 0.25)
+  cpm <- cpm(y, normalized.lib.sizes = T, log = FALSE, prior.count = 0.25)
   write.table(cpm, paste0(prefix, "_cpm.txt"), sep = "\t")
   #synStore(File("schwannomaCPMs_cpm.txt", parentId="syn9884466"), used = c("syn9925491","syn9884664"), executed = this.file)
   

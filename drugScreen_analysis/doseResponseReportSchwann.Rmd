@@ -139,7 +139,7 @@ doseResp_new <-full_join(doseResp_new, group)
 
 ##Dose response curves (human)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=10, fig.height=4}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=10, fig.height=3}
 HS_normViab <- UCF_normViab[UCF_normViab$cellLine %in% c("HS01","HS11", "MS01", "MS02", "MS03", "MS12", "MSC11"),]
 
 HS_doseResp <- doseResp[doseResp$cellLine %in% c("HS01", "HS11", "MS01", "MS02", "MS03", "MS12", "MSC11"),]
@@ -166,7 +166,7 @@ p1 <- p1 + colScale
 p2 <- p1 + stat_summary(geom="ribbon", fun.data = mean_cl_normal, conf.int=0.95, fill = "grey", alpha = 0.25,  aes(color = Cell.Type, group = cellLine))
 p2 <- p2 + colScale
 p1
-ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 10, height = 4)
+ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 10, height = 3)
 p2
 ggsave(filename = "Schwannoma_drug_response_2Dplot_Human_confidence.pdf",width = 10, height = 4)
 
@@ -174,7 +174,7 @@ ggsave(filename = "Schwannoma_drug_response_2Dplot_Human_confidence.pdf",width =
 
 ## Dose response curves (mouse)
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=10, fig.height=4}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", fig.width=10, fig.height=3}
 p1 <- ggplot(HS_normViab %>% filter(Species == "Mouse" & drug %in% drugs), aes(x = log10(conc*(1e+6)), y = normViability*100))
 p1 <- p1 + geom_point(aes(color=Cell.Type), size = 0.1)
 p1 <- p1 + geom_line(data = HS_doseResp %>% filter(Species == "Mouse" & drug %in% drugs), aes(x = fittedX+6, y = fittedY*100, colour = Cell.Type, group = cellLine))
@@ -186,7 +186,7 @@ p1 <- p1 + guides(color=guide_legend(title="Nf2 Genotype (Mouse)"))
 p1 <- p1 + colScale
 p1 <- p1 + scale_linetype_manual(values=c("solid", "dotted"))
 p1
-ggsave(filename = "Schwannoma_drug_response_2Dplot_Human.pdf",width = 10, height = 4)
+ggsave(filename = "Schwannoma_drug_response_2Dplot_Mouse.pdf",width = 10, height = 3)
 ```
 
 ```{r, fig.align="center", fig.height=4, fig.width=8, message=FALSE, warning=FALSE, include=FALSE}

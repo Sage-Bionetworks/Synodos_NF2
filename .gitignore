@@ -41,3 +41,8 @@ NF2_annotation.xlsx
 *.history
 *.cnts
 .DS_Store
+*.idraw
+*.rds
+*.zip
+.DS_Store
+*.gtf
