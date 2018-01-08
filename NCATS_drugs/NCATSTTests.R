@@ -5,7 +5,13 @@ library(tidyr)
 library(ggplot2)
 library(viridis)
 synapseLogin()
-
+#######
+#
+#
+# THIS USES OUTDATED MAPPING APPROACH FOR TARGETS (which skews the results) DO NOT USE THIS ANALYSIS 
+#
+#
+#######
 x<-synGet("syn8314523")@filePath
 drugdat<-read.table(x, sep = '\t', header = TRUE, fill = TRUE)
 colnames(drugdat) <- c('Protocol.Name', 'Sample.ID', 'Cell.Line', 'Cell.Type', 
@@ -73,4 +79,3 @@ dat3 <- rbind(dat1,dat2)
 ggplot(dat3 %>% filter(Gene.Name=="KAT2A"), aes(x=Cell.Line, y=Max.Resp)) +
   ggbeeswarm::geom_beeswarm()
 
-  

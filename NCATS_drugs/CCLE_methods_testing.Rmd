@@ -1,0 +1,273 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(synapseClient)
+library(tidyverse)
+source("NCATS_helpers.R")
+library(PCSF)
+synapseLogin()
+
+ctrp.structures <- read.table(synGet("syn5632193")@filePath, header = T, sep = "\t", quote = "", comment.char = "") 
+ctrp.structures$makenames <- make.names(ctrp.structures$cpd_name)
+
+drug.resp <- read.table(synGet("syn7466611")@filePath, sep = "\t", header = TRUE) #%>% 
+#rownames_to_column("cellLine") %>% 
+#gather(makenames, auc, -cellLine)
+
+fp.ctrp <- parseInputFingerprint(as.character(unique(ctrp.structures$cpd_smiles)))
+sim <- fp.sim.matrix(fp.ctrp)
+
+colnames(sim) <- make.names(ctrp.structures$cpd_name)
+rownames(sim) <- make.names(ctrp.structures$cpd_name)
+
+# sim2 <- sim %>% as.data.frame() %>% rownames_to_column(".id") %>% 
+#   gather("drug", "sim", -.id) %>% filter(sim > 0.5, .id != drug) ##eliminate self loops
+# 
+# for (i in 1:nrow(sim2)){
+#   sim2[i, 1:2] = sort(sim2[i, 1:2])  ##eliminate duplicates from pairwise analysis
+# }
+# sim2 <- sim2 %>% distinct()
+
+mut.ctrp <- read.table(synGet("syn7466552")@filePath, sep = "\t") %>% rownames_to_column("gene")
+
+common.cell.lines <- intersect(rownames(drug.resp), colnames(mut.ctrp))
+
+mut.ctrp.axitinib <- filter(mut.ctrp, gene %in% c("PDGFRB", "KIT", "FLT1", "KDR", "FLT4")) %>%
+  select(one_of(common.cell.lines)) %>% summarize_all(sum) %>% t() %>% as.data.frame()
+colnames(mut.ctrp.axitinib) <- "ct"
+
+mut <- rownames(mut.ctrp.axitinib)[mut.ctrp.axitinib$ct > 0]
+wt <- rownames(mut.ctrp.axitinib)[mut.ctrp.axitinib$ct == 0]
+mutant <- c(rep(FALSE, length(wt)), rep(TRUE,length(mut)))
+pheno <- as.data.frame(mutant)
+pheno$cell <- c(wt, mut)
+
+drug.resp.smal <- drug.resp %>% rownames_to_column("cell") %>% left_join(pheno)
+```
+
+```{r}
+for(i in colnames(drug.resp.smal)[2:546]){
+  foo <- select_(drug.resp.smal, "mutant", i)
+  mut <- filter(foo, mutant ==TRUE)[,2]
+  wt <- filter(foo, mutant == FALSE)[,2]
+  ttest <- t.test(mut, wt)
+  p <- ttest$p.value
+  
+  if(p < 0.05){
+    print(paste(i,"possibly significant"))
+  bh <- p.adjust(p, method = "BH", n = length(colnames(drug.resp.smal)[2:546]))
+  ggplot() +
+    geom_boxplot(data = drug.resp.smal, aes_string(x = "mutant", y = i, color = "mutant"))+
+    ggtitle(paste("bh corrected pval:", bh))
+  ggsave(paste0(i,"_axitinibtest.png"))
+  }else{
+    print(paste(i,"not significant"))
+  }
+}
+```
+
+
+```{r}
+
+mut.ctrp.mek <- filter(mut.ctrp, gene %in% c("BRAF", "NRAS")) %>%
+  select(one_of(common.cell.lines)) %>% summarize_all(sum) %>% t() %>% as.data.frame()
+colnames(mut.ctrp.mek) <- "ct"
+
+mut <- rownames(mut.ctrp.mek)[mut.ctrp.mek$ct > 0]
+wt <- rownames(mut.ctrp.mek)[mut.ctrp.mek$ct == 0]
+mutant <- c(rep(FALSE, length(wt)), rep(TRUE,length(mut)))
+pheno <- as.data.frame(mutant)
+pheno$cell <- c(wt, mut)
+
+drug.resp.smal <- drug.resp %>% rownames_to_column("cell") %>% left_join(pheno)
+
+for(i in colnames(drug.resp.smal)[2:546]){
+  foo <- select_(drug.resp.smal, "mutant", i)
+  mut <- filter(foo, mutant ==TRUE)[,2]
+  wt <- filter(foo, mutant == FALSE)[,2]
+  ttest <- t.test(mut, wt)
+  p <- ttest$p.value
+  
+  if(p < 0.05){
+    print(paste(i,"possibly significant"))
+  bh <- p.adjust(p, method = "BH", n = length(colnames(drug.resp.smal)[2:546]))
+  ggplot() +
+    geom_boxplot(data = drug.resp.smal, aes_string(x = "mutant", y = i, color = "mutant"))+
+    ggtitle(paste("bh corrected pval:", bh))
+  ggsave(paste0(i,"_mektest_.png"))
+  }else{
+    print(paste(i,"not significant"))
+  }
+}
+
+```
+
+```{r}
+##test for detection of MEK inhibitors
+
+sim.filt <- sim
+sim.filt[sim.filt<0.5] <- 0
+sim.net <- graph_from_adjacency_matrix(sim.filt, weighted = T, mode = "upper", diag = F)
+
+diffs <- sapply(colnames(drug.resp.smal)[2:546], function(x){
+  
+  foo<-select_(drug.resp.smal, "mutant", x) %>% 
+    group_by(mutant) %>% 
+    filter_(!is.na(x)) %>% 
+    summarize_all(funs(mean(., na.rm = T))) %>% 
+    ungroup() %>% 
+    spread(mutant, x) %>% 
+    mutate("diff" = `TRUE`-`FALSE`)
+  
+  foo$diff
+})
+
+terminals <- abs(diffs[diffs < -0])
+terminals <- terminals[!c(1:length(terminals)) %in% idx]
+
+term.samp <- terminals[!terminals>2.355]
+
+subnet.ccle <- PCSF_rand(sim.net, term.samp, w = 2, b = 10, mu = 0.0000000005) ##nothing
+plot(subnet.ccle)
+
+##this does not appear to be a satisfactory approach so how about a random walk?
+
+```
+
+
+```{r}
+library(diffusr)
+
+##test case for random walk
+##pretend we only have results for 5 selumetinib combinations (of 12 total), each weighted at 0.2
+##everything else is 0 
+
+  # starting distribution (has to sum to one)
+  p0    <- c(rep(0, 121), 0.2, rep(0,265), 0.2, rep(0, 9), 0.2, 0.2, 0.2, rep(0, 545-400))
+  # adjacency matrix (either normalized or not)
+  graph <- sim
+  # computation of stationary distribution
+  pt    <- random.walk(p0, graph, niter = 10000)
+ 
+  pt2 <- as.data.frame(pt)
+  rownames(pt2) <- colnames(sim)
+  
+##pretend we only have results for 5 selumetinib combinations (of 12 total), each weighted at 0.2
+##everything else is 0
+  
+## what about sim.filt instead??? remove all edges below 0.2
+  
+sim.filt <- sim
+sim.filt[sim.filt<0.2] <- 0
+
+  graph <- sim.filt
+  # computation of stationary distribution
+  pt    <- random.walk(p0, graph, niter = 10000)
+ 
+  pt2 <- as.data.frame(pt)
+  rownames(pt2) <- colnames(sim)
+  
+## now using real data. all drugs selective for NF2 mutant
+  diffs2 <- diffs 
+  diffs2[diffs2 > -2] <- 0
+  diffs2[grep("selumetinib.+\\.8.+", names(diffs2))] <- 0
+  diffs2 <- abs(diffs2)
+  diffs2 <- diffs2/sum(diffs2) 
+  
+  diffs2<-diffs2[order(factor(names(diffs2), levels = c(colnames(sim))))]
+
+  sum(diffs2)
+  
+  graph <- sim
+  # computation of stationary distribution
+  pt <- random.walk(diffs2, graph, niter = 1e5)
+ 
+  pt2 <- as.data.frame(pt)
+  pt2$drug <- colnames(sim)
+  colnames(pt2)[1] <- "rand.walk"
+  
+  pt3 <- heat.diffusion(diffs2, graph, t = 0.5)
+ 
+  pt4 <- as.data.frame(pt3)
+  pt4$drug <- colnames(sim)
+  colnames(pt4)[1] <- "heat.diffpt5"
+  
+  pt5 <- heat.diffusion(diffs2, graph, t = 5)
+ 
+  pt6 <- as.data.frame(pt5)
+  pt6$drug <- colnames(sim)
+  colnames(pt6)[1] <- "heat.diff5"
+  
+  pt7 <- heat.diffusion(diffs2, graph, t = 50)
+ 
+  pt8 <- as.data.frame(pt7)
+  pt8$drug <- colnames(sim)
+  colnames(pt8)[1] <- "heat.diff50"
+  
+  pt9 <- heat.diffusion(diffs2, graph, t = 500)
+ 
+  pt10 <- as.data.frame(pt9)
+  pt10$drug <- colnames(sim)
+  colnames(pt10)[1] <- "heat.diff500"
+  
+  diffs3 <- as.data.frame(diffs) %>% rownames_to_column("drug")
+  
+  comparison <- full_join(pt2, pt4) %>% full_join(pt6) %>% full_join(pt8) %>% full_join(pt10) %>% full_join(diffs3)
+  
+  ggplot(comparison, aes(x=diffs, y=rand.walk))+
+    geom_point() +
+    geom_label_repel(data = comparison %>% filter(rand.walk > 0.0012), aes(label = drug), force = 4)
+    
+  ggplot(comparison %>% filter(rand.walk < 0.02), aes(x=diffs, y=rand.walk))+
+    geom_point() +
+    geom_label_repel(data = comparison %>% filter(rand.walk < 0.02 & rand.walk > 0.0012), aes(label = drug), force = 4)
+  
+  ##looking at these comparisons the random walk or short heat diffusion t = 0.5 are objectively the best for this 
+  ##example because these have the selumetinibXXXXXXXX8.mol.mol combinations closest to the top
+  
+  library(ggplot2)
+  ggplot(data = comparison) +
+    geom_density(aes(x=rand.walk), color = "red") +
+    geom_density(aes(x=heat.diffpt5), color = "blue") +
+    scale_x_log10()
+  
+  ggplot(data = comparison) +
+    geom_density(aes(x=heat.diffpt5), color = "red") +
+    geom_density(aes(x=heat.diff5), color = "blue") +
+    geom_density(aes(x=heat.diff50), color = "green") +  ##stable at 50?
+    geom_density(aes(x=heat.diff500), color = "purple") +
+    scale_x_log10()
+  
+  pt <- random.walk(diffs2, graph, niter = 100)
+ 
+  pt <- as.data.frame(pt)
+  pt$drug <- colnames(sim)
+  colnames(pt)[1] <-  "rand.walk1e2"
+  
+  pt2 <- random.walk(diffs2, graph, niter = 10000)
+
+  pt2 <- as.data.frame(pt2)
+  pt2$drug <- colnames(sim)
+  colnames(pt2)[1] <- "rand.walk1e4"
+  
+  pt3 <- random.walk(diffs2, graph, niter = 1000000)
+
+  pt3 <- as.data.frame(pt3)
+  pt3$drug <- colnames(sim)
+  colnames(pt3)[1] <- "rand.walk1e6"
+  
+  comparison <- full_join(pt,pt2) %>% full_join(pt3)
+
+  ggplot(data = comparison) +
+    geom_density(aes(x=rand.walk1e2), color = "red") +
+    geom_density(aes(x=rand.walk1e4), color = "blue") +  ##niter no effect
+    geom_density(aes(x=rand.walk1e6), color = "green") + 
+    scale_x_log10()
+  
+  
+```
+

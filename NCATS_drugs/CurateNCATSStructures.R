@@ -5,7 +5,7 @@ synapseLogin()
 
 ncats <-read.table(synGet("syn8314523")@filePath, header = T, sep = "\t")
 
-this.file 
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/NCATS_drugs/CurateNCATSStructures.R"
 map <- ncats %>% 
   select(Sample.ID, Sample.Name) %>% 
   distinct() %>% 
@@ -54,7 +54,8 @@ for(i in 1:nrow(temp.map)){
 }
 
 ggplot(data = temp.map) + 
-  geom_histogram(aes(x=sim))
+  geom_histogram(aes(x=sim)) +
+  labs(x = "Tanimoto Coefficient", y = "count", title = "Common Name SMILES Similarity to NCGC SMILES")
 
 ## in cases where smiles disagree, NCGC lookup seems to be the accurate one (cursory search on pubchem)
 ## use this for mapping 
@@ -68,4 +69,5 @@ map <- full_join(map, ncgc)
 write.table(map, "ncats_drugs_curated.txt", sep = "\t", quote = F, row.names = F)
 
 map <- read.table("ncats_drugs_curated.txt", sep = "\t", quote = "", comment.char = "", header = T)
-synStore(File("ncats_drugs_curated.txt", parentId = "syn8682571"), executed = this.file)
+synStore(File("ncats_drugs_curated.txt", parentId = "syn8682571"), executed = this.file, used = c("syn8314523"))
+
