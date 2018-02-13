@@ -5,9 +5,9 @@ output: html_notebook
 
 
 ```{r}
+source("NCATS_helpers.R")
 library(synapseClient)
 library(tidyverse)
-source("NCATS_helpers.R")
 library(PCSF)
 synapseLogin()
 
@@ -126,7 +126,7 @@ diffs <- sapply(colnames(drug.resp.smal)[2:546], function(x){
   foo$diff
 })
 
-terminals <- abs(diffs[diffs < -0])
+idx <- abs(diffs[diffs < -0])
 terminals <- terminals[!c(1:length(terminals)) %in% idx]
 
 term.samp <- terminals[!terminals>2.355]
@@ -217,7 +217,8 @@ sim.filt[sim.filt<0.2] <- 0
   diffs3 <- as.data.frame(diffs) %>% rownames_to_column("drug")
   
   comparison <- full_join(pt2, pt4) %>% full_join(pt6) %>% full_join(pt8) %>% full_join(pt10) %>% full_join(diffs3)
-  
+
+  library(ggrepel)  
   ggplot(comparison, aes(x=diffs, y=rand.walk))+
     geom_point() +
     geom_label_repel(data = comparison %>% filter(rand.walk > 0.0012), aes(label = drug), force = 4)
@@ -229,7 +230,6 @@ sim.filt[sim.filt<0.2] <- 0
   ##looking at these comparisons the random walk or short heat diffusion t = 0.5 are objectively the best for this 
   ##example because these have the selumetinibXXXXXXXX8.mol.mol combinations closest to the top
   
-  library(ggplot2)
   ggplot(data = comparison) +
     geom_density(aes(x=rand.walk), color = "red") +
     geom_density(aes(x=heat.diffpt5), color = "blue") +
