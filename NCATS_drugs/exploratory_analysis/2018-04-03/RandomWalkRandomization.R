@@ -1,11 +1,14 @@
-library(synapser)
-library(plyr)
 library(tidyverse)
+library(synapser)
 library(rcdk)
 library(fingerprint)
+library(diffusr)
+library(plyr)
+library(matrixStats)
 library(pbapply)
-library(pheatmap)
+library(enrichR)
 synLogin()
+### drug data
 
 is.smiles <- function(x, verbose = TRUE) { ##corrected version from webchem
   if (!requireNamespace("rcdk", quietly = TRUE)) {
@@ -25,7 +28,6 @@ is.smiles <- function(x, verbose = TRUE) { ##corrected version from webchem
 }
 
 parseInputFingerprint <- function(input) {
-  test_smiles <- is.smiles(input)
   if(is.smiles(input==TRUE)){
     input.mol <- parse.smiles(as.character(input))
     lapply(input.mol, do.typing)
@@ -37,11 +39,18 @@ parseInputFingerprint <- function(input) {
   }
 }
 
-ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
-  filter(smiles2 != "")
+is.whole <- function(a) { 
+  (is.numeric(a) && floor(a)==a) ||
+    (is.complex(a) && floor(Re(a)) == Re(a) && floor(Im(a)) == Im(a))
+}
 
-fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
-names(fp.ncats) <- ncats.structures$ncgc
+
+targets <- read.table(synGet("syn12063782")$path, comment.char = "", header = T, sep = "\t") %>% filter(sim >0.95)
+
+target.network <- select(targets, ncgc, hugo_gene, confidence)
+
+fp.ncats <- sapply(unique(targets$smiles), parseInputFingerprint)
+names(fp.ncats) <- unique(targets$ncgc)
 
 ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
 
@@ -62,14 +71,14 @@ ncats.wt <- ncats %>%
 ncats.min <- full_join(ncats.null, ncats.wt) %>% 
   dplyr::mutate(diffr = avgNull - avgWT) %>% 
   magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
-  dplyr::inner_join(ncats.structures)
+  dplyr::inner_join(target.network)
 
-library(tibble)
 ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
 ncats.mat$input <- names(fp.ncats)
 ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
 
-ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+ncats.targets <- read.table(synGet("syn12063782")$path, sep = "\t", header=T) %>% 
+  filter(ncgc %in% names(fp.ncats)) %>% 
   select(ncgc, hugo_gene) %>% 
   mutate(connectivity = 1) %>% 
   set_names(c('input', "out", "connectivity")) %>% 
@@ -86,7 +95,9 @@ ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>%
   column_to_rownames("input") %>% 
   as.matrix()
 
-ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% 
+  filter(ncgc %in% ncats.targets$input) %>% 
+  distinct()
 ncats.min$diffr[ncats.min$diffr >0] <- 0 
 ncats.min$diffr <- abs(ncats.min$diffr)
 
@@ -94,41 +105,61 @@ names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
 ncats.min <- full_join(names,ncats.min)
 ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
 
-p0 <- ncats.min$diffr
-p.norm <- (p0/sum(p0))
 
-walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
-walk$names <- names$ncgc
+###Random walk  analysis
 
-heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
-heat$names <- names$ncgc
+ p0 <- ncats.min$diffr
+ walk <- random.walk(p0, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+ walk$name <- names$ncgc
 
-perms <- full_join(heat, walk)
+foo <- ncats.min
 
-freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
-  bind_rows(ncats.targets.reverse) %>% 
-  distinct() %>% 
-  group_by(input) %>% 
-  tally() %>% 
-  ungroup() %>% 
-  select(input, n) %>% 
-  set_names(c("names", "n"))
+res.walk <- pbsapply(1:1000, function(x){
+  foo$diffr[grep("NCGC.+",foo$ncgc)] <- sample(foo$diffr[grep("NCGC.+",foo$ncgc)])
+  p0 <- foo$diffr
+  walk <- random.walk(p0, ncats.graph, r = 0.5) %>% as.data.frame() %>% set_names(c("heat"))
+})
 
-perms <- perms[grep("NCGC.+", invert = T, perms$names),]
-perms <- left_join(perms,freq)
-  
+res2<-ldply(res.walk) %>% select(-.id) %>% t() %>% as.data.frame()
+
+res2$name <- c(foo$ncgc)
+res3 <- res2
+res3$mean <- rowMeans(res3[,1:1000]) 
+res3$sd <- rowSds(as.matrix(res3[,1:1000]))
+res3 <- res3 %>% dplyr::select(1001:1003) %>% 
+  inner_join(walk) %>% 
+  mutate(diff = walk-mean) %>% 
+  mutate(test = diff>sd) 
+
+db <- listEnrichrDbs()[,1]
+db <- db[!db %in% "NCI-Nature_2015"]
+res4 <- res3[!grepl("NCGC.+",res3$name),]
+res4 <- res4 %>% filter(diff>0 & test==TRUE) %>% 
+  top_n(50, diff)
+
+enrichment <- enrichr(res4$name, db)
+enrichment1 <- ldply(enrichment)
+
+
+igraph <- igraph::graph_from_adjacency_matrix(ncats.graph)
+
+library(dnet)
+
+foo2 <- column_to_rownames(ncats.min, "ncgc")
+rw <- dRWR(igraph, setSeeds = foo2, restart = 0.5)
+rw <- as.matrix(rw) %>% as.data.frame()
+rw$name <- rownames(foo2)
+
+
+join <- full_join(res3, rw)
+
 library(ggplot2)
-library(ggrepel)
-ggplot(perms, aes(x = walk, y = heat)) +
-  geom_point() +
-  geom_label_repel(data = perms %>% top_n(20, walk), aes(label = names, fill = log(n)))
+library(plotly)
 
-cor(perms$heat, perms$n)
-cor(perms$walk, perms$n)
+p <- ggplot(join %>% filter(!grepl("NCGC", name))) +
+  geom_point(aes(x = walk, y = V1, color = V1+walk, label = name))
+ggplotly(p)
 
-perms.norm <- mutate(perms, walk = walk/n, heat = heat/n)
 
-ggplot(perms.norm, aes(x = walk, y = heat)) +
-  geom_point() +
-  geom_label_repel(data = perms.norm %>% top_n(20, heat), aes(label = names))
+
 

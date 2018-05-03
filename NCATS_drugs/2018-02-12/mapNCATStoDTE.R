@@ -1,11 +1,13 @@
+options(java.parameters = "-Xmx250g" ) 
 library(synapser)
 library(plyr)
 library(tidyverse)
 library(rcdk)
 library(fingerprint)
-library(pbapply)
-synLogin()
-this.file = ""
+synLogin("allawayr","Warbler44")
+this.file = "https://raw.githubusercontent.com/Sage-Bionetworks/Synodos_NF2/master/NCATS_drugs/2018-02-12/mapNCATStoDTE.R"
+
+parser <- get.smiles.parser()
 
 is.smiles <- function(x, verbose = TRUE) { ##corrected version from webchem
   if (!requireNamespace("rcdk", quietly = TRUE)) {
@@ -44,7 +46,7 @@ fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
 
 db <- readRDS(synGet("syn11712148")$path) %>% 
   filter(!is.na(hugo_gene)) %>% 
-  select(internal_id, common_name, hugo_gene, mean_pchembl, n_quantitative, n_qualitative)
+  select(internal_id, common_name, hugo_gene, mean_pchembl, n_quantitative, n_qualitative, known_selectivity_index, confidence)
 
 fp.db <- readRDS(synGet("syn11808628")$path)
 fp.db <- fp.db[names(fp.db) %in% unique(db$internal_id)]
@@ -52,27 +54,8 @@ fp.db <- fp.db[names(fp.db) %in% unique(db$internal_id)]
 library(parallel)
 library(pbmcapply)
 
-sims <- pbmclapply(fp.ncats, function(i) {
-  sim <- lapply(fp.db, function(j) {
-    distance(i, j)
-  })
-  bar <- ldply(sim)
-  colnames(bar) <- c("match", "similarity")
-  bar <- filter(bar, similarity == .95)
-  bar
-}, mc.cores = 64)
-
-sims <- ldply(sims)
-colnames(sims) <- c("smiles2","internal_id", "sim")
-sims <- sims %>% left_join(db) %>% left_join(ncats.structures)
-sims.network <- sims %>% select(ncgc, hugo_gene) %>% distinct() %>%  mutate(one = 1) %>% spread(hugo_gene, one , fill = "0")
-
-write.table(sims, "NCATS_to_DTE_tanimoto_cutoff_1_00.txt", sep = "\t", row.names = F)
-synStore(File("NCATS_to_DTE_tanimoto_cutoff_1_00.txt", parentId = "syn11808773"), 
-         used = c("syn11808628","syn11712148", "syn11559906"), 
-         executed = this.file)
-
-sims2 <- pbmclapply(fp.ncats, function(i) {
+sims.temp <- pbmclapply(fp.ncats, function(i) {
+  print(names(i))
   sim <- lapply(fp.db, function(j) {
     distance(i, j)
   })
@@ -82,8 +65,14 @@ sims2 <- pbmclapply(fp.ncats, function(i) {
   bar
 }, mc.cores = 64)
 
-sims2 <- ldply(sims2)
-colnames(sims2) <- c("smiles2","internal_id", "sim")
-sims2 <- sims2 %>% left_join(db) %>% left_join(ncats.structures)
-sims2.network <- sims2 %>% select(ncgc, hugo_gene) %>% distinct() %>%  mutate(one = 1) %>% spread(hugo_gene, one , fill = "0")
+
+sims <- ldply(sims.temp)
+colnames(sims) <- c("smiles2","internal_id", "sim")
+sims <- sims %>% left_join(db) %>% left_join(ncats.structures)
+sims.network <- sims %>% select(ncgc, hugo_gene) %>% distinct() %>%  mutate(one = 1) %>% spread(hugo_gene, one , fill = "0")
+
+write.table(sims, "NCATS_to_DTE_tanimoto_cutoff_0_95.txt", sep = "\t", row.names = F)
+synStore(File("NCATS_to_DTE_tanimoto_cutoff_0_95.txt", parentId = "syn11808773"), 
+         used = c("syn11808628","syn11712148", "syn11559906"), 
+         executed = this.file)
 

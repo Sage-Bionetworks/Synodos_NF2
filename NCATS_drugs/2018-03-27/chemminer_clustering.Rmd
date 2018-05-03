@@ -1,0 +1,125 @@
+---
+title: "NCATS Single Agent Analysis"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+dyn.load('/Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home/jre/lib/server/libjvm.dylib') ##rjava will not load upon knit otherwise
+library(plyr)
+library(tidyverse)
+library(ggrepel)
+library(parallel)
+library(pheatmap)
+library(synapser)
+library(plotly)
+library(DT)
+library(pbapply)
+source("NCATS_helpers.R")
+synLogin()
+
+fp.to.simple.matrix <- function( fplist ) {
+  size <- fplist[[1]]@nbit
+  m <- matrix(0, nrow=length(fplist), ncol=2)
+  cnt <- 1
+  for ( i in fplist ) {
+    foo <- c(rep(0, size))
+    foo[i@bits] <- 1
+    m[cnt,1] <- paste0(foo, collapse = "")
+    m[cnt,2] <- names(fplist)[cnt]
+    cnt <- cnt + 1
+  }
+  m
+}
+
+is.smiles <- function(x, verbose = TRUE) { ##corrected version from webchem
+  if (!requireNamespace("rcdk", quietly = TRUE)) {
+    stop("rcdk needed for this function to work. Please install it.",
+         call. = FALSE)
+  }
+  # x <- 'Clc(c(Cl)c(Cl)c1C(=O)O)c(Cl)c1Cl'
+  if (length(x) > 1) {
+    stop('Cannot handle multiple input strings.')
+  }
+  out <- try(rcdk::parse.smiles(x), silent = TRUE)
+  if (inherits(out[[1]], "try-error") | is.null(out[[1]])) {
+    return(FALSE)
+  } else {
+    return(TRUE)
+  }
+}
+
+map2<- read.table("ncats_drugs_curated.txt", sep = "\t", quote = "", comment.char = "", header = T)
+ncats <-read.table(synGet("syn8314523")$path, header = T, sep = "\t")
+targs <- read.table(synGet("syn11609839")$path, header = T, sep = "\t", comment.char = "", quote = "\"")
+
+x<-synGet("syn11559906")$path
+drugstruct<-read.table(x, sep = '\t', header = TRUE, comment.char = "", quote = "") %>% 
+  filter(smiles != "" & drug_name != "") %>% distinct()
+
+```
+
+```{r}
+valid.smiles<-pbsapply(drugstruct$smiles2, is.smiles)
+
+smiles <- drugstruct$smiles2
+valid.smiles <- as.data.frame(valid.smiles)
+valid.smiles$smiles <- smiles
+valid <- valid.smiles$smiles[valid.smiles==TRUE]
+
+parseInputFingerprint <- function(input, type) {
+  print("parsing smiles")
+  input.mol <- parse.smiles(as.character(input))
+  print("doing typing")
+  pblapply(input.mol, do.typing)
+  print("doing aromaticity")
+  pblapply(input.mol, do.aromaticity)
+  print("doing isotopes")
+  pblapply(input.mol, do.isotopes)
+  print("generating fingerprints")
+  pblapply(input.mol, get.fingerprint, type = type)
+}
+
+##takes a while
+mat <- matrix(ncol = 2)
+ct <- 1
+parser <- get.smiles.parser()
+
+foo <- parseInputFingerprint(valid[ct:length(valid)], type = "circular")
+
+sim.mat <- fp.sim.matrix(foo)
+rownames(sim.mat) <- names(foo)
+colnames(sim.mat) <- names(foo)
+
+dist.mat <- 1-sim.mat
+
+clust <- hclust(as.dist(dist.mat), method = "ward.D2")
+
+names.sort <- drugstruct[order(drugstruct$smiles2, clust$labels),]
+clust$labels <- sapply(names.sort$drug_name, function(x) strtrim(x, 30))
+
+plot(clust)
+hcd.targ <- as.dendrogram(clust)
+plot(cut(hcd.targ, h=1.5)$upper)
+plot(cut(hcd.targ, h=1.5)$lower[[9]])
+library(plotly)
+
+plot_dendro(cut(hcd.targ, h=1.5)$lower[[9]], height = 600) %>% 
+  hide_legend() %>% 
+  highlight(persistent = TRUE, dynamic = TRUE)
+```
+
+
+```{r}
+library(ChemmineR)
+smiles <- select(drugstruct, smiles2, ncgc)
+write.table(smiles,"smiles.smi", sep = "\t", row.names = F, quote = F, col.names = F)
+smiset <- read.SMIset("smiles.smi")
+sdf<-smiles2sdf(smiset)
+valid <- validSDF(sdf)
+sdf <- sdf[valid]
+ap<-sdf2ap(sdf)
+cluster <- cmp.cluster(db=ap, cutoff = c(0.3, 0.5))
+```
+

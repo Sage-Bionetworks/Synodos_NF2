@@ -1,0 +1,867 @@
+---
+title: "2/12/18-2/13/18, 2/20/18 NCATS NF2 Drug-Target Network Analysis"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(rJava)
+library(synapser)
+library(plyr)
+library(tidyverse)
+library(rcdk)
+library(fingerprint)
+library(pbapply)
+library(pheatmap)
+library(tibble)
+library(ggplot2)
+library(ggrepel)
+library(plotly)
+library(diffusr)
+library(annotables)
+synLogin()
+
+is.smiles <- function(x, verbose = TRUE) { ##corrected version from webchem
+  if (!requireNamespace("rcdk", quietly = TRUE)) {
+    stop("rcdk needed for this function to work. Please install it.",
+         call. = FALSE)
+  }
+  # x <- 'Clc(c(Cl)c(Cl)c1C(=O)O)c(Cl)c1Cl'
+  if (length(x) > 1) {
+    stop('Cannot handle multiple input strings.')
+  }
+  out <- try(rcdk::parse.smiles(x), silent = TRUE)
+  if (inherits(out[[1]], "try-error") | is.null(out[[1]])) {
+    return(FALSE)
+  } else {
+    return(TRUE)
+  }
+}
+
+parseInputFingerprint <- function(input) {
+  test_smiles <- is.smiles(input)
+  if(is.smiles(input==TRUE)){
+    input.mol <- parse.smiles(as.character(input))
+    lapply(input.mol, do.typing)
+    lapply(input.mol, do.aromaticity)
+    lapply(input.mol, do.isotopes)
+    fp.inp <- lapply(input.mol, get.fingerprint, type = "circular")
+  }else{
+    print('Please input a valid SMILES string.')
+  }
+}
+```
+
+###Setup for analysis
+
+Get structures for NCATS, calculate inter-ncats similarity matrix.
+Get NCATS screening results and use map for D-T explorer to map targets (~1350 molecules mappable).
+Munge into matrix representing graph. Mol-Mol values represent circular fingerprint similarity (0-1). Mol-Gene values represent targets (0 for not target, 1 for target). 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
+  filter(smiles2 != "")
+
+fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
+names(fp.ncats) <- ncats.structures$ncgc
+
+ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out))
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>% 
+  set_names(c('input', "out", "connectivity"))
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+```
+
+###Random walk and heat diffusion analysis
+
+Feed all of this data into diffusr random.walk and heat.diffusion, where graph = one described above, and p0 is 0 for all drugs and genes, with the exception of drugs that are selective for NF2-/- cells. For these, it is the differential AUC (mutant-wt), converted to absolute value, and normalize to sum to 1. In other words, only drugs selective for NF2-/- cells have a starting node value, and that value is bigger if it is more selective. 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+```
+
+###Compare results
+
+Heat.diffusion and random.walk generate approximately the same result, with some outliers. 
+However - MAPT is the top target. This is a red flag, because MAPT is the single most frequently occurring target in the D-T Explorer Database (shows up ~33000 times), and might also be in this subset of molecules. The color of the label is the log(n) where n is then number of times this target shows up as a drug target in the current analysis. 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+hist.data <- dplyr::select(perms, names, n) %>% distinct()
+
+p<-ggplot(hist.data, aes(x = reorder(names, -n), y = n)) +
+  geom_bar(stat = "identity")
+ggplotly(p)
+
+```
+
+Correlation of heat values and walk values to number of drugs that target that node. 
+```{r echo=FALSE}
+cor(perms$heat, perms$n)
+cor(perms$walk, perms$n)
+```
+
+Normalize these values by dividing final node value by number of drugs that target that node. 
+```{r echo=FALSE}
+
+perms.norm <- mutate(perms, walk = walk/n, heat = heat/n)
+
+p <- ggplot(perms.norm, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +  geom_point()
+
+ggplotly(p,tooltip = c("label", "label2"))
+```
+
+##Conclusions
+The number of connections that a target has greatly influences whether it will rise to the top in this approach. Therefore, without some sort of penalization or normalization this method will probably not be fruitful. On the other hand, simply dividing by the number of edges for a given target may favor targets with only one or two drugs too much. Perhaps weighting by a confidence metric rather than binary values may help? Another logical approach to try is is to figure out how to incorporate negative values into the random walk; can we get rid of uninformative targets by comparing this result (above), to the opposite exercise (i.e. looking for "hot" nodes using drugs selective for NF2+/+ cells)?
+
+```{r echo=FALSE}
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr <0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+perms.opposite <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms.opposite <- perms.opposite[grep("NCGC.+", invert = T, perms.opposite$names),]
+perms.opposite <- left_join(perms.opposite,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms.opposite <- left_join(perms.opposite, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+
+```
+If we run both the random walk and heat diffusion in the opposite direction (i.e. looking for hot nodes using drugs selective for NF2 +/+), and then normalize the mutant data by this; i.e. mutant_heat results divided by wt_heat results and the same for random.walk, and plot these, we get rid of the genes that show up with high frequency. 
+
+```{r echo=FALSE}
+perms.combined <- perms %>% select(heat, names, walk) %>% set_names(c("mut_heat", "names", "mut_walk"))
+perms.combined.2 <- perms.opposite %>% select(heat, names, walk, description, n) %>% set_names(c("wt_heat", "names", "wt_walk", "description", "n"))
+
+perms.combined <- full_join(perms.combined, perms.combined.2) %>% mutate("heat" = mut_heat/wt_heat, "walk" = mut_walk/wt_walk)
+
+p <- ggplot(perms.combined, aes(x = walk, y = heat, label = names, label2 = description, color = n>2)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+
+```
+
+##02/20/2018 Try again, but with directed graph.
+
+Taking Sara and Justin's suggestions:
+Convert to directed graph. Mol-mol is still undirected, but mol-target is one direction (into the target).
+Have a similarity cutoff - this might be introducing a bunch of noise. Try a 0.5 tanimoto cutoff to start. 
+Increase restart rate. 
+
+The method requires an n x n matrix representative of all the connections, so everything under 0.5 will be set to 0, and all reverse target->gene connections will also be set to 0. 
+
+
+```{r}
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+
+ncats.tidy$connectivity[ncats.tidy$connectivity<0.1] <- 0 
+ncats.tidy$connectivity[ncats.tidy$connectivity==1] <- 0 ##eliminate self loops
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out))
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  mutate(connectivity = 0)
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+
+ncats.min <- ncats.min[match(colnames(ncats.graph), ncats.min$ncgc),]
+```
+###Random walk and heat diffusion analysis
+
+Feed all of this data into diffusr random.walk and heat.diffusion, where graph = one described above, and p0 is 0 for all drugs and genes, with the exception of drugs that are selective for NF2-/- cells. For these, it is the differential AUC (mutant-wt), converted to absolute value, and normalize to sum to 1. In other words, only drugs selective for NF2-/- cells have a starting node value, and that value is bigger if it is more selective. 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+
+walk <- random.walk(p0, ncats.graph, r = 0) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+ 
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+```
+
+###Compare results
+
+Heat.diffusion and random.walk generate approximately the same result, with some outliers. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+hist.data <- dplyr::select(perms, names, n) %>% distinct()
+
+p<-ggplot(hist.data, aes(x = reorder(names, -n), y = n)) +
+  geom_bar(stat = "identity")
+ggplotly(p)
+
+```
+
+##Feb 26 attempt 3
+
+
+###Setup for analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
+  filter(smiles2 != "")
+
+fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
+names(fp.ncats) <- ncats.structures$ncgc
+
+ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+ncats.tidy$connectivity[ncats.tidy$connectivity<0.1] <- 0 
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out)) %>% 
+  group_by(out) %>% 
+  add_tally() %>% 
+  mutate(connectivity = connectivity/n) %>% 
+  select(input, out, connectivity)
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>% 
+  set_names(c('input', "out", "connectivity"))
+
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+```
+
+###Random walk and heat diffusion analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+```
+
+###Compare results
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+```
+
+
+##Feb 26 attempt 3
+
+
+###Setup for analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
+  filter(smiles2 != "")
+
+fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
+names(fp.ncats) <- ncats.structures$ncgc
+
+ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+ncats.tidy$connectivity[ncats.tidy$connectivity<0.1] <- 0 
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out))
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>% 
+  set_names(c('input', "out", "connectivity"))
+
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+```
+
+###Random walk and heat diffusion analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+```
+
+###Compare results
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+hist.data <- dplyr::select(perms, names, n) %>% distinct()
+
+p<-ggplot(hist.data, aes(x = reorder(names, -n), y = n)) +
+  geom_bar(stat = "identity")
+ggplotly(p)
+
+```
+Correlation of heat values and walk values to number of drugs that target that node. 
+```{r echo=FALSE}
+cor(perms$heat, perms$n)
+cor(perms$walk, perms$n)
+```
+
+Normalize these values by dividing final node value by number of drugs that target that node. 
+```{r echo=FALSE}
+
+perms.norm <- mutate(perms, walk = walk/n, heat = heat/n)
+
+p <- ggplot(perms.norm, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +  geom_point()
+
+ggplotly(p,tooltip = c("label", "label2"))
+```
+
+##Conclusions
+The number of connections that a target has greatly influences whether it will rise to the top in this approach. Therefore, without some sort of penalization or normalization this method will probably not be fruitful. On the other hand, simply dividing by the number of edges for a given target may favor targets with only one or two drugs too much. Perhaps weighting by a confidence metric rather than binary values may help? Another logical approach to try is is to figure out how to incorporate negative values into the random walk; can we get rid of uninformative targets by comparing this result (above), to the opposite exercise (i.e. looking for "hot" nodes using drugs selective for NF2+/+ cells)?
+
+##Feb 26 attempt 3
+
+
+###Setup for analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
+  filter(smiles2 != "")
+
+fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
+names(fp.ncats) <- ncats.structures$ncgc
+
+ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+ncats.tidy$connectivity[ncats.tidy$connectivity<0.1] <- 0 
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out)) %>% 
+  group_by(out) %>% 
+  add_tally() %>% 
+  mutate(connectivity = connectivity/n) %>% 
+  select(input, out, connectivity)
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>% 
+  set_names(c('input', "out", "connectivity"))
+
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+```
+
+###Random walk and heat diffusion analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+```
+
+###Compare results
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+```
+
+
+##Feb 27 attempt 4
+
+
+###Setup for analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ncats.structures <- read.table(synGet("syn11559906")$path, sep = "\t", comment.char = "", header = T, quote = "") %>% 
+  filter(smiles2 != "")
+
+fp.ncats <- sapply(ncats.structures$smiles2, parseInputFingerprint)
+names(fp.ncats) <- ncats.structures$ncgc
+
+ncats <- read.table(synGet("syn8314523")$path, sep = "\t", comment.char = "", header = T, quote = "")  
+
+ncats.null <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS01","Syn5", "Syn6")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgNull = mean(AUC))
+
+ncats.wt <- ncats %>% 
+  select(Sample.ID, Cell.line, AUC) %>% 
+  filter(Cell.line %in% c("HS11","Syn1")) %>% 
+  select(-Cell.line) %>% 
+  dplyr::group_by(Sample.ID) %>% 
+  dplyr::summarise(avgWT = mean(AUC))
+
+ncats.min <- full_join(ncats.null, ncats.wt) %>% 
+  dplyr::mutate(diffr = avgNull - avgWT) %>% 
+  magrittr::set_colnames(c("ncgc", "avgNull", "avgWT", "diffr")) %>% 
+  dplyr::inner_join(ncats.structures)
+
+ncats.mat <- fp.sim.matrix(fp.ncats) %>% as.data.frame() %>% set_names(names(fp.ncats))
+ncats.mat$input <- names(fp.ncats)
+ncats.tidy <- ncats.mat %>% gather("out", "connectivity", -input) %>% distinct()
+ncats.tidy$connectivity[ncats.tidy$connectivity<0.1] <- 0 
+
+ncats.targets <- read.table(synGet("syn11808774")$path, sep = "\t", header=T) %>% 
+  select(ncgc, hugo_gene) %>% 
+  mutate(connectivity = 1) %>% 
+  set_names(c('input', "out", "connectivity")) %>% 
+  filter(!is.na(out)) %>% 
+  group_by(out) %>% 
+  add_tally() %>% 
+  filter(n > 1) %>% 
+  mutate(connectivity = 1/log(n)) %>% 
+  select(input, out, connectivity)
+
+ncats.targets.reverse <- ncats.targets %>% select(out, input, connectivity) %>%
+  set_names(c('input', "out", "connectivity"))
+
+
+ncats.graph <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  spread(out, connectivity, fill = 0) %>% 
+  remove_rownames() %>% 
+  column_to_rownames("input") %>% 
+  as.matrix()
+
+ncats.min <- ncats.min %>% select(ncgc, diffr) %>% filter(ncgc %in% ncats.targets$input)
+ncats.min$diffr[ncats.min$diffr >0] <- 0 
+ncats.min$diffr <- abs(ncats.min$diffr)
+
+names <- as.data.frame(rownames(ncats.graph)) %>% set_names("ncgc")
+ncats.min <- full_join(names,ncats.min)
+ncats.min$diffr[is.na(ncats.min$diffr)] <- 0
+```
+
+###Random walk and heat diffusion analysis
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+p0 <- ncats.min$diffr
+p.norm <- (p0/sum(p0))
+
+walk <- random.walk(p.norm, ncats.graph) %>% as.data.frame() %>%  set_names(c("walk"))
+walk$names <- names$ncgc
+
+heat <- heat.diffusion(p.norm, ncats.graph) %>% as.data.frame() %>% set_names(c("heat"))
+heat$names <- names$ncgc
+
+```
+
+###Compare results
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+perms <- full_join(heat, walk)
+
+freq <- bind_rows(ncats.tidy, ncats.targets) %>% 
+  bind_rows(ncats.targets.reverse) %>% 
+  distinct() %>% 
+  group_by(input) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  select(input, n) %>% 
+  set_names(c("names", "n"))
+
+perms <- perms[grep("NCGC.+", invert = T, perms$names),]
+perms <- left_join(perms,freq)
+
+annot <- grch38 %>% 
+  select(symbol, biotype, description) %>% 
+  set_names(c("names", "biotype", "description"))
+  
+perms <- left_join(perms, annot)
+
+p <- ggplot(perms, aes(x = walk, y = heat, label = names, color = log(n), label2 = description)) +
+  geom_point()
+
+ggplotly(p, tooltip = c("label", "label2"))
+
+hist.data <- dplyr::select(perms, names, n) %>% distinct()
+
+p<-ggplot(hist.data, aes(x = reorder(names, -n), y = n)) +
+  geom_bar(stat = "identity")
+ggplotly(p)
+
+```
+```{r}
+library(enrichR)
+
+dbs <- c("KEGG_2016","GO_Biological_Process_2017b", "GO_Molecular_Function_2017b",
+         "GO_Cellular_Component_2017b")
+
+top.targets <- perms %>% 
+  mutate(prod = heat) %>% 
+  arrange(-prod) %>% 
+  select(names, prod) %>% 
+  distinct() %>% 
+  top_n(100, prod)
+
+res<-enrichr(top.targets$names, dbs)
+```
+
