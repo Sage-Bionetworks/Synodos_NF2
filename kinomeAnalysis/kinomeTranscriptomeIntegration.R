@@ -10,6 +10,7 @@ synapseLogin()
 degenes <- read.table(synGet("syn9884855")@filePath, header = TRUE, sep = "\t")
 
 dat<-read.table(synGet("syn5840701")@filePath, sep = "\t", header = TRUE, comment.char = "")
+##2022 note: syn5840701 refers to a private file, the same file is available publicly at syn6182638
 kinome <- read.table(synGet("syn4975368")@filePath, sep = "\t", header = TRUE)
 sch.kin.tx <- kinome %>% 
   filter(cellLine1 == "HS01" & cellLine2 == "HS11" & time1 == "24h" & time2 == "24h") %>% 
